@@ -22,6 +22,7 @@ using System.Collections.ObjectModel;
 using System.Collections;
 using System.Diagnostics;
 using System.Text;
+using Engine.XmlAnalysis;
 
 namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
 {
@@ -1708,15 +1709,19 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             return scriptFilePaths;
         }
 
+        private static readonly string[] s_psFileExtensions = {
+            ".ps1",
+            ".psm1",
+            ".psd1",
+            ".ps1xml",
+            ".cdxml"
+        };
+
         private void BuildScriptPathList(
             string path,
             bool searchRecursively,
             IList<string> scriptFilePaths)
         {
-            const string ps1Suffix = ".ps1";
-            const string psm1Suffix = ".psm1";
-            const string psd1Suffix = ".psd1";
-
             if (Directory.Exists(path))
             {
                 if (searchRecursively)
@@ -1741,9 +1746,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             else if (File.Exists(path))
             {
                 String fileName = Path.GetFileName(path);
-                if ((fileName.Length >= ps1Suffix.Length && String.Equals(Path.GetExtension(path), ps1Suffix, StringComparison.OrdinalIgnoreCase)) ||
-                    (fileName.Length >= psm1Suffix.Length && String.Equals(Path.GetExtension(path), psm1Suffix, StringComparison.OrdinalIgnoreCase)) ||
-                    (fileName.Length >= psd1Suffix.Length && String.Equals(Path.GetExtension(path), psd1Suffix, StringComparison.OrdinalIgnoreCase)))
+                if (s_psFileExtensions.Any(ext => String.Equals(Path.GetExtension(path), ext, StringComparison.OrdinalIgnoreCase)))
                 {
                     scriptFilePaths.Add(path);
                 }
@@ -1811,7 +1814,29 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             if (File.Exists(filePath))
             {
                 // processing for non help script
-                if (!(Path.GetFileName(filePath).ToLower().StartsWith("about_") && Path.GetFileName(filePath).ToLower().EndsWith(".help.txt")))
+                string fileName = Path.GetFileName(filePath).ToLower();
+
+                // Hacked PS1XML analysis
+                if (fileName.EndsWith("xml"))
+                {
+                    IScriptRule useCompatibleTypesRule = ScriptRules.First(rule => rule.GetName().Contains("UseCompatibleTypes"));
+                    if (fileName.EndsWith(".types.ps1xml"))
+                    {
+                        return new TypesPs1XmlAnalyzer(filePath, this, useCompatibleTypesRule).AnalyzeXml();
+                    }
+
+                    if (fileName.EndsWith(".format.ps1xml"))
+                    {
+                        return new FormatPs1XmlAnalyzer(filePath, this, useCompatibleTypesRule).AnalyzeXml();
+                    }
+
+                    if (fileName.EndsWith(".cdxml"))
+                    {
+                        return new CdXmlAnalyzer(filePath, this, useCompatibleTypesRule).AnalyzeXml();
+                    }
+                }
+                // Resume scheduled programming
+                else if (!(fileName.StartsWith("about_") && fileName.EndsWith(".help.txt")))
                 {
                     try
                     {
