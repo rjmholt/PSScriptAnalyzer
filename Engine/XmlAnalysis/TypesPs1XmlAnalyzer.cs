@@ -8,13 +8,26 @@ using Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic;
 
 namespace Engine.XmlAnalysis
 {
+    /// <summary>
+    /// Class for PowerShell analysis of .types.ps1xml files
+    /// </summary>
     public class TypesPs1XmlAnalyzer : XmlAnalyzer
     {
-        public TypesPs1XmlAnalyzer(string ps1XmlFilePath, ScriptAnalyzer parentAnalyzer, IScriptRule useCompatibleTypesRule) 
-            : base(ps1XmlFilePath, parentAnalyzer, useCompatibleTypesRule)
+        /// <summary>
+        /// Create a new .types.ps1xml analyzer object
+        /// </summary>
+        /// <param name="ps1XmlFilePath">the path of the XML file to analyze</param>
+        /// <param name="scriptAnalyzer">the script analyzer to perform PowerShell analysis with</param>
+        /// <param name="useCompatibleTypesRule">the UseCompatibleTypes rule, to run on directly embedded type names</param>
+        public TypesPs1XmlAnalyzer(string ps1XmlFilePath, ScriptAnalyzer scriptAnalyzer, IScriptRule useCompatibleTypesRule) 
+            : base(ps1XmlFilePath, scriptAnalyzer, useCompatibleTypesRule)
         {
         }
 
+        /// <summary>
+        /// Analyze the XML document this object holds
+        /// </summary>
+        /// <returns>diagnostic records with analysis for the XML document</returns>
         public override IEnumerable<DiagnosticRecord> AnalyzeXml()
         {
             // TODO possibly resolve a URI here
@@ -22,6 +35,9 @@ namespace Engine.XmlAnalysis
             return AnalyzeTypesPs1XmlNode(typesPs1XmlDoc.Root);
         }
 
+        /// <summary>
+        /// XML tags that contain script in .types.ps1xml
+        /// </summary>
         private static readonly HashSet<string> s_typesScriptXmlTags = new HashSet<string>()
         {
             "GetScriptBlock",
@@ -29,44 +45,56 @@ namespace Engine.XmlAnalysis
             "ScriptBlock",
         };
 
-        private IEnumerable<DiagnosticRecord> AnalyzeTypesPs1XmlNode(XElement currNode, bool parentIsType = false)
+        /// <summary>
+        /// Recursively analyze an XML document element
+        /// </summary>
+        /// <param name="currentElement">the XML element to be analyzed</param>
+        /// <param name="parentIsType">true if the enclosing element was a &lt;Type&gt; tag</param>
+        /// <returns>diagnostic records with analysis of this element and all its children</returns>
+        private IEnumerable<DiagnosticRecord> AnalyzeTypesPs1XmlNode(XElement currentElement, bool parentIsType = false)
         {
-            IScriptExtent currExtent = UpdatePosition(currNode);
+            IScriptExtent currentExtent = UpdatePosition(currentElement);
 
-            if (parentIsType && currNode.Name.LocalName == "Name" && !DescribesCimClass(currNode.Value))
+            // Look for <Name>System.TypeName</Name> kinds of tags underneath <Type> tags
+            if (parentIsType && currentElement.Name.LocalName == "Name" && !DescribesCimClass(currentElement.Value))
             {
-                TypeExpressionAst fakeTypeAst = new TypeExpressionAst(currExtent, new TypeName(currExtent, currNode.Value));
+                TypeExpressionAst fakeTypeAst = GenerateFakeTypeAstFromTypeName(currentElement.Value, currentExtent);
                 foreach (DiagnosticRecord typeDR in UseCompatibleTypesRule.AnalyzeScript(fakeTypeAst, XmlFilePath))
                 {
                     yield return typeDR;
                 }
+                // Name tags have no children of interest
                 yield break;
             }
 
-            if (s_typesScriptXmlTags.Contains(currNode.Name.LocalName))
+            // Look for tags that contain embedded scriptblocks
+            if (s_typesScriptXmlTags.Contains(currentElement.Name.LocalName))
             {
-                foreach (DiagnosticRecord dr in ScriptAnalyzer.AnalyzeScriptDefinition(currNode.Value))
+                foreach (DiagnosticRecord dr in ScriptAnalyzer.AnalyzeScriptDefinition(currentElement.Value))
                 {
                     yield return dr;
                 }
             }
-            else if (currNode.Name == "TypeName" && !DescribesCimClass(currNode.Value))
+            // Look for embedded type references like <TypeName>System.TypeName</Name>
+            else if (currentElement.Name == "TypeName" && !DescribesCimClass(currentElement.Value))
             {
-                TypeExpressionAst fakeTypeAst = new TypeExpressionAst(currExtent, new TypeName(currExtent, currNode.Value));
+                TypeExpressionAst fakeTypeAst = GenerateFakeTypeAstFromTypeName(currentElement.Value, currentExtent);
                 foreach (DiagnosticRecord typeDR in UseCompatibleTypesRule.AnalyzeScript(fakeTypeAst, String.Empty))
                 {
                     yield return typeDR;
                 }
             }
 
-            if (!currNode.HasElements)
+            // If there are no children, we're done
+            if (!currentElement.HasElements)
             {
                 yield break;
             }
 
-            foreach (XElement childNode in currNode.Elements())
+            // Recursively analyze child nodes
+            foreach (XElement childNode in currentElement.Elements())
             {
-                foreach (DiagnosticRecord childDR in AnalyzeTypesPs1XmlNode(childNode, parentIsType: currNode.Name == "Type"))
+                foreach (DiagnosticRecord childDR in AnalyzeTypesPs1XmlNode(childNode, parentIsType: currentElement.Name == "Type"))
                 {
                     yield return childDR;
                 }
