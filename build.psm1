@@ -146,6 +146,9 @@ function Start-ScriptAnalyzerBuild
     END {
         if ( $All )
         {
+            # Build the CrossCompatibility module
+            & $PSScriptRoot\CrossCompatibility\build.ps1 -Configuration $Configuration
+
             # Build all the versions of the analyzer
             Start-ScriptAnalyzerBuild -Framework full -Configuration $Configuration -PSVersion "3"
             Start-ScriptAnalyzerBuild -Framework full -Configuration $Configuration -PSVersion "4"
@@ -169,6 +172,9 @@ function Start-ScriptAnalyzerBuild
         else {
             $frameworkName = "net451"
         }
+
+        # Build CrossCompatibility module
+        & $PSScriptRoot\CrossCompatibility\build.ps1 -Framework $frameworkName -Configuration $Configuration
 
         # build the appropriate assembly
         if ($PSVersion -match "[34]" -and $Framework -eq "core")
