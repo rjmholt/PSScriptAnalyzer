@@ -144,10 +144,15 @@ function Start-ScriptAnalyzerBuild
         }
     }
     END {
+        # Destination for the composed module when built
+        $destinationDir = "$projectRoot\out\PSScriptAnalyzer"
+
         if ( $All )
         {
             # Build the CrossCompatibility module
             & $PSScriptRoot\CrossCompatibility\build.ps1 -Configuration $Configuration
+            Copy-CrossCompatibilityModule -Destination "$destinationDir/CrossCompatibility"
+            $crossCompatibilityAlreadyBuilt = $true
 
             # Build all the versions of the analyzer
             Start-ScriptAnalyzerBuild -Framework full -Configuration $Configuration -PSVersion "3"
@@ -173,8 +178,12 @@ function Start-ScriptAnalyzerBuild
             $frameworkName = "net451"
         }
 
-        # Build CrossCompatibility module
-        & $PSScriptRoot\CrossCompatibility\build.ps1 -Framework $frameworkName -Configuration $Configuration
+        # Build CrossCompatibility module, if the caller has not already built it
+        if (-not $crossCompatibilityAlreadyBuilt)
+        {
+            & $PSScriptRoot\CrossCompatibility\build.ps1 -Framework $frameworkName -Configuration $Configuration
+            Copy-CrossCompatibilityModule -Destination "$destinationDir/CrossCompatibility"
+        }
 
         # build the appropriate assembly
         if ($PSVersion -match "[34]" -and $Framework -eq "core")
@@ -195,7 +204,6 @@ function Start-ScriptAnalyzerBuild
 
         $settingsFiles = Get-Childitem "$projectRoot\Engine\Settings" | ForEach-Object -MemberName FullName
 
-        $destinationDir = "$projectRoot\out\PSScriptAnalyzer"
         # this is normalizing case as well as selecting the proper location
         if ( $Framework -eq "core" ) {
             $destinationDirBinaries = "$destinationDir\coreclr"
@@ -302,4 +310,38 @@ function Get-TestFailures
     $logPath = (Resolve-Path $logfile).Path
     $results = [xml](Get-Content $logPath)
     $results.SelectNodes(".//test-case[@result='Failure']")
+}
+
+# Copies the built CrossCompatibility module to the output destination for PSSA
+function Copy-CrossCompatibilityModule
+{
+    param(
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $Destination
+    )
+
+    $destInfo = Get-Item -Path $Destination -ErrorAction SilentlyContinue
+
+    # Can't copy to a file
+    if ($destInfo -and -not $destInfo.PSIsContainer)
+    {
+        throw "Destination exists but is not a directory"
+    }
+
+    # Create the destination if it does not exist
+    if (-not $destInfo)
+    {
+        New-Item -Path $Destination -ItemType Directory
+    }
+
+    $outputAssets = @(
+        "$PSScriptRoot/CrossCompatibility/CrossCompatibility.psd1"
+        "$PSScriptRoot/CrossCompatibility/CrossCompatibility.psm1"
+        "$PSScriptRoot/CrossCompatibility/CrossCompatibilityBinary"
+        "$PSScriptRoot/CrossCompatibility/profiles"
+    )
+
+    $outputAssets | Copy-Item -Destination $Destination -Recurse -Force
 }
