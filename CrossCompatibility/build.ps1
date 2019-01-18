@@ -12,7 +12,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$script:TargetFrameworks = 'netstandard2.0','net451'
+if ($IsWindows -eq $false) {
+    $script:TargetFrameworks = 'netstandard2.0'
+} else {
+    $script:TargetFrameworks = 'netstandard2.0','net451'
+}
+
 $script:BinModDir = Join-Path $PSScriptRoot 'CrossCompatibilityBinary'
 $script:BinModSrcDir = Join-Path $PSScriptRoot 'CrossCompatibility'
 
