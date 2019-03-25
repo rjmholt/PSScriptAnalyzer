@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.PowerShell.CrossCompatibility.Query.Types;
 using Data = Microsoft.PowerShell.CrossCompatibility.Data;
 
@@ -14,6 +16,10 @@ namespace Microsoft.PowerShell.CrossCompatibility.Query
     public class RuntimeData
     {
         private readonly Lazy<IReadOnlyDictionary<string, IReadOnlyDictionary<Version, ModuleData>>> _modules;
+
+        private readonly Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>> _nonAliasCommands;
+
+        private readonly Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>> _aliases;
 
         private readonly Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>> _commands;
 
@@ -29,7 +35,9 @@ namespace Microsoft.PowerShell.CrossCompatibility.Query
             Common = new CommonPowerShellData(runtimeData.Common);
 
             _modules = new Lazy<IReadOnlyDictionary<string, IReadOnlyDictionary<Version, ModuleData>>>(() => CreateModuleTable(runtimeData.Modules));
-            _commands = new Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>>(() => CreateCommandLookupTable(Modules));
+            _nonAliasCommands = new Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>>(() => CreateNonAliasCommandLookupTable(Modules));
+            _aliases = new Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>>(() => CreateAliasLookupTable(runtimeData.Modules, NonAliasCommands));
+            _commands = new Lazy<IReadOnlyDictionary<string, IReadOnlyList<CommandData>>>(() => new DualLookupTable<string, IReadOnlyList<CommandData>>(Aliases, NonAliasCommands));
             _nativeCommands = new Lazy<NativeCommandLookupTable>(() => NativeCommandLookupTable.Create(runtimeData.NativeCommands));
         }
 
@@ -59,7 +67,11 @@ namespace Microsoft.PowerShell.CrossCompatibility.Query
         /// </summary>
         public CommonPowerShellData Common { get; }
 
-        private static IReadOnlyDictionary<string, IReadOnlyDictionary<Version, ModuleData>> CreateModuleTable(IDictionary<string, JsonDictionary<Version, Data.Modules.ModuleData>> modules)
+        internal IReadOnlyDictionary<string, IReadOnlyList<CommandData>> NonAliasCommands => _nonAliasCommands.Value;
+
+        internal IReadOnlyDictionary<string, IReadOnlyList<CommandData>> Aliases => _aliases.Value;
+
+        private IReadOnlyDictionary<string, IReadOnlyDictionary<Version, ModuleData>> CreateModuleTable(IDictionary<string, JsonDictionary<Version, Data.Modules.ModuleData>> modules)
         {
             var moduleDict = new Dictionary<string, IReadOnlyDictionary<Version, ModuleData>>(modules.Count, StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<string, JsonDictionary<Version, Data.Modules.ModuleData>> moduleVersions in modules)
@@ -67,14 +79,14 @@ namespace Microsoft.PowerShell.CrossCompatibility.Query
                 var moduleVersionDict = new Dictionary<Version, ModuleData>(moduleVersions.Value.Count);
                 foreach (KeyValuePair<Version, Data.Modules.ModuleData> module in moduleVersions.Value)
                 {
-                    moduleVersionDict[module.Key] = new ModuleData(name: moduleVersions.Key, version: module.Key, moduleData: module.Value);
+                    moduleVersionDict[module.Key] = new ModuleData(name: moduleVersions.Key, version: module.Key, parent: this, moduleData: module.Value);
                 }
                 moduleDict[moduleVersions.Key] = moduleVersionDict;
             }
             return moduleDict;
         }
 
-        private static IReadOnlyDictionary<string, IReadOnlyList<CommandData>> CreateCommandLookupTable(
+        private static IReadOnlyDictionary<string, IReadOnlyList<CommandData>> CreateNonAliasCommandLookupTable(
             IReadOnlyDictionary<string, IReadOnlyDictionary<Version, ModuleData>> modules)
         {
             var commandTable = new Dictionary<string, IReadOnlyList<CommandData>>(StringComparer.OrdinalIgnoreCase);
@@ -107,23 +119,89 @@ namespace Microsoft.PowerShell.CrossCompatibility.Query
                             ((List<CommandData>)commandTable[function.Key]).Add(function.Value);
                         }
                     }
-
-                    if (module.Aliases != null)
-                    {
-                        foreach (KeyValuePair<string, CommandData> alias in module.Aliases)
-                        {
-                            if (!commandTable.ContainsKey(alias.Key))
-                            {
-                                commandTable.Add(alias.Key, new List<CommandData>());
-                            }
-
-                            ((List<CommandData>)commandTable[alias.Key]).Add(alias.Value);
-                        }
-                    }
                 }
             }
 
             return commandTable;
+        }
+
+        private static IReadOnlyDictionary<string, IReadOnlyList<CommandData>> CreateAliasLookupTable(
+            IReadOnlyDictionary<string, JsonDictionary<Version, Data.Modules.ModuleData>> modules,
+            IReadOnlyDictionary<string, IReadOnlyList<CommandData>> commands)
+        {
+            var aliasTable = new Dictionary<string, IReadOnlyList<CommandData>>();
+            foreach (KeyValuePair<string, JsonDictionary<Version, Data.Modules.ModuleData>> module in modules)
+            {
+                foreach (KeyValuePair<Version, Data.Modules.ModuleData> moduleVersion in module.Value)
+                {
+                    foreach (KeyValuePair<string, string> alias in moduleVersion.Value.Aliases)
+                    {
+                        if (commands.TryGetValue(alias.Value, out IReadOnlyList<CommandData> aliasedCommands))
+                        {
+                            aliasTable[alias.Key] = aliasedCommands;
+                        }
+                    }
+                }
+            }
+            return aliasTable;
+        }
+
+        private class DualLookupTable<K, V> : IReadOnlyDictionary<K, V>
+        {
+            private readonly IReadOnlyDictionary<K, V> _firstTable;
+
+            private readonly IReadOnlyDictionary<K, V> _secondTable;
+
+            public DualLookupTable(IReadOnlyDictionary<K, V> firstTable, IReadOnlyDictionary<K, V> secondTable)
+            {
+                _firstTable = firstTable;
+                _secondTable = secondTable;
+            }
+
+            public V this[K key]
+            {
+                get
+                {
+                    if (_firstTable.TryGetValue(key, out V firstValue))
+                    {
+                        return firstValue;
+                    }
+
+                    if (_secondTable.TryGetValue(key, out V secondValue))
+                    {
+                        return secondValue;
+                    }
+
+                    throw new KeyNotFoundException();
+                }
+            }
+
+            public IEnumerable<K> Keys => _firstTable.Keys.Concat(_secondTable.Keys);
+
+            public IEnumerable<V> Values => _firstTable.Values.Concat(_secondTable.Values);
+
+            public int Count => _firstTable.Count + _secondTable.Count;
+
+            public bool ContainsKey(K key)
+            {
+                return _firstTable.ContainsKey(key) || _secondTable.ContainsKey(key);
+            }
+
+            public IEnumerator<KeyValuePair<K, V>> GetEnumerator()
+            {
+                return _firstTable.Concat(_secondTable).GetEnumerator();
+            }
+
+            public bool TryGetValue(K key, out V value)
+            {
+                return _firstTable.TryGetValue(key, out value)
+                    || _secondTable.TryGetValue(key, out value);
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
         }
     }
 }
