@@ -134,6 +134,11 @@ namespace Microsoft.PowerShell.CrossCompatibility.Query
             {
                 foreach (KeyValuePair<Version, Data.Modules.ModuleData> moduleVersion in module.Value)
                 {
+                    if (moduleVersion.Value.Aliases == null)
+                    {
+                        continue;
+                    }
+
                     foreach (KeyValuePair<string, string> alias in moduleVersion.Value.Aliases)
                     {
                         if (commands.TryGetValue(alias.Value, out IReadOnlyList<CommandData> aliasedCommands))
