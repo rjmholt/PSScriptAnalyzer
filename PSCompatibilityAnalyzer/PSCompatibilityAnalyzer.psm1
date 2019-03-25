@@ -672,10 +672,12 @@ function Get-PowerShellCompatibilityData
     $typeAccelerators = Get-TypeAccelerators
 
     $nativeCommands = Get-Command -CommandType Application
+    $aliasTable = Get-AliasTable
     $coreModule = Get-CoreModuleData
 
     $runtimeArgs = @{
         Modules = $modules
+        AliasTable = $aliasTable
         Assemblies = $asms
         TypeAccelerators = $typeAccelerators
         NativeCommands = $nativeCommands
@@ -917,6 +919,9 @@ A list of .NET assemblies available in the PowerShell session.
 .PARAMETER Modules
 A list of PowerShell modules available in the PowerShell session.
 
+.PARAMETER AliasTable
+A dictionary of aliases available in the PowerShell session.
+
 .PARAMETER TypeAccelerators
 A dictionary of type accelerators available in the PowerShell session.
 
@@ -935,6 +940,10 @@ function New-RuntimeData
         $Modules,
 
         [Parameter()]
+        [System.Collections.Generic.IDictionary[string, System.Management.Automation.AliasInfo[]]]
+        $AliasTable,
+
+        [Parameter()]
         [System.Collections.Generic.IDictionary[string, type]]
         $TypeAccelerators,
 
@@ -947,7 +956,7 @@ function New-RuntimeData
 
     if ($Modules)
     {
-        $compatData.Modules = $Modules | New-ModuleData
+        $compatData.Modules = $Modules | New-ModuleData -AliasTable $AliasTable
     }
 
     if ($Assemblies)
@@ -1022,6 +1031,20 @@ function New-NativeCommandData
 
 <#
 .SYNOPSIS
+Create a table of aliases available in the current PowerShell session.
+
+.DESCRIPTION
+Builds a dictionary of what aliases correspond to which commands in the current PowerShell session.
+#>
+function Get-AliasTable
+{
+    $dict = New-Object 'System.Collections.Generic.Dictionary[string, System.Management.Automation.AliasInfo[]]'
+    Get-Alias | Group-Object Definition | ForEach-Object { $dict[$_.Name] = $_.Group }
+    return $dict
+}
+
+<#
+.SYNOPSIS
 Get the cmdlet common parameters in PowerShell.
 
 .DESCRIPTION
@@ -1072,13 +1095,20 @@ creates a dictionary of serializable metadata describing those modules.
 
 .PARAMETER Module
 A module to include in the table
+
+.PARAMETER AliasTable
+Global PowerShell aliases, to look up and include aliases referring to commands in this module.
 #>
 function New-ModuleData
 {
     param(
         [Parameter(ValueFromPipeline=$true)]
         [psmoduleinfo]
-        $Module
+        $Module,
+
+        [Parameter()]
+        [System.Collections.Generic.IDictionary[string, System.Management.Automation.AliasInfo[]]]
+        $AliasTable
     )
 
     begin
@@ -1090,19 +1120,51 @@ function New-ModuleData
     {
         $modData = @{}
 
-        if ($Module.ExportedAliases -and $Module.ExportedAliases.get_Count() -gt 0)
-        {
-            $modData['Aliases'] = $Module.ExportedAliases.Values | New-AliasData
-        }
+        $modData['Aliases'] = $Module.ExportedAliases.Values | New-AliasData
 
         if ($Module.ExportedCmdlets -and $Module.ExportedCmdlets.get_Count() -gt 0)
         {
             $modData['Cmdlets'] = $Module.ExportedCmdlets.Values | New-CmdletData
+
+            foreach ($cmdlet in $Module.ExportedCmdlets.get_Values())
+            {
+                $aliases = $null
+                if ($AliasTable.TryGetValue($cmdlet.Name, [ref]$aliases))
+                {
+                    foreach ($alias in $aliases)
+                    {
+                        if (-not $modData['Aliases'].ContainsKey($alias.Name))
+                        {
+                            $null = $modData.Aliases.Add($alias.Name, $cmdlet.Name)
+                        }
+                    }
+                }
+            }
         }
 
         if ($Module.ExportedFunctions -and $Module.ExportedFunctions.get_Count() -gt 0)
         {
             $modData['Functions'] = $Module.ExportedFunctions.Values | New-FunctionData
+
+            foreach ($function in $Module.ExportedFunctions.get_Values())
+            {
+                $aliases = $null
+                if ($AliasTable.TryGetValue($function.Name, [ref]$aliases))
+                {
+                    foreach ($alias in $aliases)
+                    {
+                        if (-not $modData['Aliases'].ContainsKey($alias.Name))
+                        {
+                            $null = $modData.Aliases.Add($alias.Name, $cmdlet.Name)
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($modData['Aliases'].get_Count() -le 0)
+        {
+            $modData.Remove('Aliases')
         }
 
         if ($Module.ExportedVariables -and $Module.ExportedVariables.get_Count() -gt 0)
