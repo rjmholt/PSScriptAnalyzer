@@ -684,18 +684,10 @@ function Get-PowerShellCompatibilityData
     $typeAccelerators = Get-TypeAccelerators
 
     $nativeCommands = Get-Command -CommandType Application
-<<<<<<< HEAD
-=======
-    $aliasTable = Get-AliasTable
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
     $coreModule = Get-CoreModuleData
 
     $runtimeArgs = @{
         Modules = $modules
-<<<<<<< HEAD
-=======
-        AliasTable = $aliasTable
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
         Assemblies = $asms
         TypeAccelerators = $typeAccelerators
         NativeCommands = $nativeCommands
@@ -937,12 +929,6 @@ A list of .NET assemblies available in the PowerShell session.
 .PARAMETER Modules
 A list of PowerShell modules available in the PowerShell session.
 
-<<<<<<< HEAD
-=======
-.PARAMETER AliasTable
-A dictionary of aliases available in the PowerShell session.
-
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
 .PARAMETER TypeAccelerators
 A dictionary of type accelerators available in the PowerShell session.
 
@@ -961,13 +947,6 @@ function New-RuntimeData
         $Modules,
 
         [Parameter()]
-<<<<<<< HEAD
-=======
-        [System.Collections.Generic.IDictionary[string, System.Management.Automation.AliasInfo[]]]
-        $AliasTable,
-
-        [Parameter()]
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
         [System.Collections.Generic.IDictionary[string, type]]
         $TypeAccelerators,
 
@@ -980,11 +959,7 @@ function New-RuntimeData
 
     if ($Modules)
     {
-<<<<<<< HEAD
         $compatData.Modules = $Modules | New-ModuleData
-=======
-        $compatData.Modules = $Modules | New-ModuleData -AliasTable $AliasTable
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
     }
 
     if ($Assemblies)
@@ -1059,23 +1034,6 @@ function New-NativeCommandData
 
 <#
 .SYNOPSIS
-<<<<<<< HEAD
-=======
-Create a table of aliases available in the current PowerShell session.
-
-.DESCRIPTION
-Builds a dictionary of what aliases correspond to which commands in the current PowerShell session.
-#>
-function Get-AliasTable
-{
-    $dict = New-Object 'System.Collections.Generic.Dictionary[string, System.Management.Automation.AliasInfo[]]'
-    Get-Alias | Group-Object Definition | ForEach-Object { $dict[$_.Name] = $_.Group }
-    return $dict
-}
-
-<#
-.SYNOPSIS
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
 Get the cmdlet common parameters in PowerShell.
 
 .DESCRIPTION
@@ -1126,96 +1084,32 @@ creates a dictionary of serializable metadata describing those modules.
 
 .PARAMETER Module
 A module to include in the table
-<<<<<<< HEAD
-=======
-
-.PARAMETER AliasTable
-Global PowerShell aliases, to look up and include aliases referring to commands in this module.
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
 #>
 function New-ModuleData
 {
     param(
         [Parameter(ValueFromPipeline=$true)]
         [psmoduleinfo]
-<<<<<<< HEAD
         $Module
-=======
-        $Module,
-
-        [Parameter()]
-        [System.Collections.Generic.IDictionary[string, System.Management.Automation.AliasInfo[]]]
-        $AliasTable
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
     )
-
-    begin
-    {
-        $dict = New-Object 'System.Collections.Generic.Dictionary[string, Microsoft.PowerShell.CrossCompatibility.JsonDictionary[version, Microsoft.PowerShell.CrossCompatibility.Data.Modules.ModuleData]]' ([System.StringComparer]::OrdinalIgnoreCase)
-    }
 
     process
     {
         $modData = @{}
 
-<<<<<<< HEAD
         if ($Module.ExportedAliases -and $Module.ExportedAliases.get_Count() -gt 0)
         {
             $modData['Aliases'] = $Module.ExportedAliases.Values | New-AliasData
         }
-=======
-        $modData['Aliases'] = $Module.ExportedAliases.Values | New-AliasData
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
 
         if ($Module.ExportedCmdlets -and $Module.ExportedCmdlets.get_Count() -gt 0)
         {
             $modData['Cmdlets'] = $Module.ExportedCmdlets.Values | New-CmdletData
-<<<<<<< HEAD
-=======
-
-            foreach ($cmdlet in $Module.ExportedCmdlets.get_Values())
-            {
-                $aliases = $null
-                if ($AliasTable.TryGetValue($cmdlet.Name, [ref]$aliases))
-                {
-                    foreach ($alias in $aliases)
-                    {
-                        if (-not $modData['Aliases'].ContainsKey($alias.Name))
-                        {
-                            $null = $modData.Aliases.Add($alias.Name, $cmdlet.Name)
-                        }
-                    }
-                }
-            }
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
         }
 
         if ($Module.ExportedFunctions -and $Module.ExportedFunctions.get_Count() -gt 0)
         {
             $modData['Functions'] = $Module.ExportedFunctions.Values | New-FunctionData
-<<<<<<< HEAD
-=======
-
-            foreach ($function in $Module.ExportedFunctions.get_Values())
-            {
-                $aliases = $null
-                if ($AliasTable.TryGetValue($function.Name, [ref]$aliases))
-                {
-                    foreach ($alias in $aliases)
-                    {
-                        if (-not $modData['Aliases'].ContainsKey($alias.Name))
-                        {
-                            $null = $modData.Aliases.Add($alias.Name, $cmdlet.Name)
-                        }
-                    }
-                }
-            }
-        }
-
-        if ($modData['Aliases'].get_Count() -le 0)
-        {
-            $modData.Remove('Aliases')
->>>>>>> a40ed15dd748068ee97a3bda3f5b3c03855cf6ea
         }
 
         if ($Module.ExportedVariables -and $Module.ExportedVariables.get_Count() -gt 0)
