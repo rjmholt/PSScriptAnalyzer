@@ -172,11 +172,6 @@ Describe 'UseCompatibleCommands' {
             $diagnostics = Invoke-ScriptAnalyzer -IncludeRule $script:RuleName -ScriptDefinition $Script -Settings $settings `
                 | Where-Object { -not $_.Parameter } # Filter out diagnostics about incompatible parameters
 
-            if ($diagnostics.Count -ne $ProblemCount)
-            {
-                Wait-Debugger
-            }
-
             $diagnostics.Count | Should -Be $ProblemCount
 
             for ($i = 0; $i -lt $diagnostics.Count; $i++)
