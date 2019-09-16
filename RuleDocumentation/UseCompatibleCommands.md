@@ -41,10 +41,10 @@ Platforms bundled by default are:
 | 5.1                | Windows Server 2016   | `win-8_x64_10.0.14393.0_5.1.14393.2791_x64_4.0.30319.42000_framework` |
 | 5.1                | Windows Server 2019   | `win-8_x64_10.0.17763.0_5.1.17763.316_x64_4.0.30319.42000_framework`  |
 | 5.1                | Windows 10            | `win-48_x64_10.0.17763.0_5.1.17763.316_x64_4.0.30319.42000_framework` |
-| 6.1                | Windows Server 2016   | `win-8_x64_10.0.14393.0_6.1.3_x64_4.0.30319.42000_core`               |
-| 6.1                | Windows Server 2019   | `win-8_x64_10.0.17763.0_6.1.3_x64_4.0.30319.42000_core`               |
-| 6.1                | Windows 10            | `win-48_x64_10.0.17763.0_6.1.3_x64_4.0.30319.42000_core`              |
-| 6.1                | Ubuntu 18.04 LTS      | `ubuntu_x64_18.04_6.1.3_x64_4.0.30319.42000_core`                     |
+| 6.2                | Windows Server 2016   | `win-8_x64_10.0.14393.0_6.2.3_x64_4.0.30319.42000_core`               |
+| 6.2                | Windows Server 2019   | `win-8_x64_10.0.17763.0_6.2.3_x64_4.0.30319.42000_core`               |
+| 6.2                | Windows 10            | `win-48_x64_10.0.17763.0_6.2.3_x64_4.0.30319.42000_core`              |
+| 6.2                | Ubuntu 18.04 LTS      | `ubuntu_x64_18.04_6.2.3_x64_4.0.30319.42000_core`                     |
 
 Other profiles can be found [here](https://github.com/PowerShell/PSScriptAnalyzer/tree/development/PSCompatibilityCollector/optional_profiles).
 
@@ -75,7 +75,7 @@ An example configuration might look like:
         UseCompatibleCommmands = @{
             Enable = $true
             TargetProfiles = @(
-                'ubuntu_x64_18.04_6.1.3_x64_4.0.30319.42000_core'
+                'ubuntu_x64_18.04_6.2.3_x64_4.0.30319.42000_core'
                 'win-48_x64_10.0.17763.0_5.1.17763.316_x64_4.0.30319.42000_framework'
                 'MyProfile'
                 'another_custom_profile_in_the_profiles_directory.json'
