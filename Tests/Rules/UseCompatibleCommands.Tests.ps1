@@ -101,7 +101,6 @@ $script:CompatibilityTestCases = @(
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'Get-AuthenticodeSignature ./script.ps1'; Commands = @("Get-AuthenticodeSignature"); Version = "6.2"; OS = "Linux"; ProblemCount = 1 }
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'Get-Service systemd'; Commands = @("Get-Service"); Version = "6.2"; OS = "Linux"; ProblemCount = 1 }
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'Start-Service -Name "sshd"'; Commands = @("Start-Service"); Version = "6.2"; OS = "Linux"; ProblemCount = 1 }
-    @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'Get-PSSessionConfiguration -Name Full  | Format-List -Property *'; Commands = @("Get-PSSessionConfiguration"); Version = "6.2"; OS = "Linux"; ProblemCount = 1 }
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'Get-CimInstance Win32_StartupCommand'; Commands = @("Get-CimInstance"); Version = "6.2"; OS = "Linux"; ProblemCount = 1 }
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'Get-ChildItem ./ | Format-List'; Commands = @(); Version = "6.2"; OS = "Linux"; ProblemCount = 0 }
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = 'gci .'; Commands = @(); Version = "6.2"; OS = "Linux"; ProblemCount = 0 }
@@ -151,8 +150,8 @@ $script:ParameterCompatibilityTestCases = @(
     @{ Target = $script:Srv2019_5_profile; Script = 'Get-Process | sort PagedMemorySize -Top 10'; Commands = @('sort'); Parameters = @('Top'); Version = '5.1'; OS = 'Windows'; ProblemCount = 1 }
     @{ Target = $script:Srv2019_5_profile; Script = 'Get-Process | select -first 1 | Out-String -NoNewline'; Commands = @('Out-String'); Parameters = @('NoNewline'); Version = '5.1'; OS = 'Windows'; ProblemCount = 1 }
 
-    @{ Target = $script:Srv2019_6_2_profile; Script = 'Get-Help "Invoke-WebRequest" -ShowWindow'; Commands = @('Get-Help'); Parameters = @('ShowWindow'); Version = '6.1'; OS = 'Windows'; ProblemCount = 1 }
-    @{ Target = $script:Srv2019_6_2_profile; Script = 'Start-Service "eventlog" -ComputerName "MyComputer"'; Commands = @('Start-Service'); Parameters = @('ComputerName'); Version = '6.1'; OS = 'Windows'; ProblemCount = 1 }
+    @{ Target = $script:Srv2019_6_2_profile; Script = 'Get-Help "Invoke-WebRequest" -ShowWindow'; Commands = @('Get-Help'); Parameters = @('ShowWindow'); Version = '6.2'; OS = 'Windows'; ProblemCount = 1 }
+    @{ Target = $script:Srv2019_6_2_profile; Script = 'Start-Service "eventlog" -ComputerName "MyComputer"'; Commands = @('Start-Service'); Parameters = @('ComputerName'); Version = '6.2'; OS = 'Windows'; ProblemCount = 1 }
 )
 
 Describe 'UseCompatibleCommands' {
