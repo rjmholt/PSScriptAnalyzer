@@ -35,10 +35,10 @@ $script:TypeCompatibilityTestCases = @(
 
     @{ Target = $script:Srv2019_6_2_profile; Script = 'function CertFunc { param([System.Net.ICertificatePolicy]$Policy) Do-Something $Policy }'; Types = @('System.Net.ICertificatePolicy'); Version = "6.2"; OS = 'Windows'; ProblemCount = 1 }
 
-    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy()'; Types = @('System.Management.Automation.Security.SystemPolicy'); Version = "6.1.2"; OS = 'Linux'; ProblemCount = 1 }
-    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy()'; Types = @('System.Management.Automation.Security.SystemPolicy'); Version = "6.1.2"; OS = 'Linux'; ProblemCount = 1 }
-    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Security.SystemEnforcementMode]$enforcementMode = "Audit"'; Types = @('System.Management.Automation.Security.SystemEnforcementMode'); Version = "6.1.2"; OS = 'Linux'; ProblemCount = 1 }
-    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '$ci = New-Object "Microsoft.PowerShell.Commands.ComputerInfo"'; Types = @('Microsoft.PowerShell.Commands.ComputerInfo'); Version = "6.1.2"; OS = 'Linux'; ProblemCount = 1 }
+    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy()'; Types = @('System.Management.Automation.Security.SystemPolicy'); Version = "6.2.3"; OS = 'Linux'; ProblemCount = 1 }
+    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy()'; Types = @('System.Management.Automation.Security.SystemPolicy'); Version = "6.2.3"; OS = 'Linux'; ProblemCount = 1 }
+    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Security.SystemEnforcementMode]$enforcementMode = "Audit"'; Types = @('System.Management.Automation.Security.SystemEnforcementMode'); Version = "6.2.3"; OS = 'Linux'; ProblemCount = 1 }
+    @{ Target = $script:Ubuntu1804_6_2_profile; Script = '$ci = New-Object "Microsoft.PowerShell.Commands.ComputerInfo"'; Types = @('Microsoft.PowerShell.Commands.ComputerInfo'); Version = "6.2.3"; OS = 'Linux'; ProblemCount = 1 }
 )
 
 $script:MemberCompatibilityTestCases = @(
@@ -50,8 +50,6 @@ $script:MemberCompatibilityTestCases = @(
 
     @{ Target = $script:Srv2019_5_profile; Script = '$socket = [System.Net.WebSockets.WebSocket]::CreateFromStream($stream, $true, "http", [timespan]::FromMinutes(10))'; Types = @('System.Net.WebSockets.WebSocket'); Members = @('CreateFromStream'); Version = "5.1"; OS = 'Windows'; ProblemCount = 1 }
     @{ Target = $script:Srv2019_5_profile; Script = '[System.Management.Automation.HostUtilities]::InvokeOnRunspace($command, $runspace)'; Types = @('System.Management.Automation.HostUtilities'); Members = @('InvokeOnRunspace'); Version = "5.1"; OS = 'Windows'; ProblemCount = 1 }
-
-    @{ Target = $script:Srv2019_6_2_profile; Script = '[Microsoft.PowerShell.ToStringCodeMethods]::PropertyValueCollection($obj)'; Types = @('Microsoft.PowerShell.ToStringCodeMethods'); Members = @('PropertyValueCollection'); Version = "6.2"; OS = 'Windows'; ProblemCount = 1 }
 
     @{ Target = $script:Ubuntu1804_6_2_profile; Script = '[System.Management.Automation.Tracing.Tracer]::GetExceptionString($e)'; Types = @('System.Management.Automation.Tracing.Tracer'); Members = @('GetExceptionString'); Version = "6.2"; OS = 'Linux'; ProblemCount = 1 }
 )
@@ -166,6 +164,7 @@ Describe 'UseCompatibleTypes' {
             }
 
             $diagnostics = Invoke-ScriptAnalyzer -Path "$PSScriptRoot/../../" -Settings $settings -IncludeRule PSUseCompatibleTypes
+            Wait-Debugger
             $diagnostics.Count | Should -Be 0
         }
     }
