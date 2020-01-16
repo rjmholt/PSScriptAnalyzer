@@ -10,6 +10,7 @@ using System.ComponentModel.Composition;
 using System.Globalization;
 using Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic;
 using System.Linq;
+using System.Collections.Concurrent;
 
 namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 {
@@ -268,6 +269,168 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                     {
                         assignmentsDictionary_OrdinalIgnoreCase.Remove(constantExpressionAstOfArray.Value);
                     }
+                }
+            }
+        }
+
+        private class Visitor : AstVisitor, IAstPostVisitHandler
+        {
+            // List of known dot-sourcing commands. Boolean is meaningless - allows concurrent hash lookup
+            private static ConcurrentDictionary<string, bool> s_dotSourcingCommands = new ConcurrentDictionary<string, bool>(new [] {
+                new KeyValuePair<string, bool>("ForEach-Object", true ),
+                new KeyValuePair<string, bool>("%", true ),
+                new KeyValuePair<string, bool>("Where-Object", true),
+                new KeyValuePair<string, bool>("?", true),
+            }, StringComparer.OrdinalIgnoreCase);
+
+
+            private readonly IRule _rule;
+            private readonly string _scriptPath;
+            private readonly List<DiagnosticRecord> _diagnostics;
+            private readonly Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, VariableExpressionAst>>> _scriptBlockContext;
+
+            private bool _nextScriptBlockUsedInParentContext;
+
+            public Visitor(IRule rule, string scriptPath)
+            {
+                _rule = rule;
+                _scriptPath = scriptPath;
+                _diagnostics = new List<DiagnosticRecord>();
+                _scriptBlockContext = new Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, VariableExpressionAst>>>();
+                _nextScriptBlockUsedInParentContext = false;
+            }
+
+            public IEnumerable<DiagnosticRecord> GetDiagnostics()
+            {
+                return _diagnostics;
+            }
+
+            public void PostVisit(Ast ast)
+            {
+                if (_scriptBlockContext.Count == 0)
+                {
+                    return;
+                }
+
+                if (_scriptBlockContext.Peek().Key == ast)
+                {
+                    Dictionary<string, VariableExpressionAst> unusedVariables = _scriptBlockContext.Pop().Value;
+                    foreach (VariableExpressionAst variable in unusedVariables.Values)
+                    {
+                        string variableName = variable.VariablePath.UserPath;
+                        _diagnostics.Add(
+                            new DiagnosticRecord(
+                                string.Format(CultureInfo.CurrentCulture, Strings.UseDeclaredVarsMoreThanAssignmentsError, variableName),
+                                variable.Extent,
+                                _rule.GetName(),
+                                DiagnosticSeverity.Warning,
+                                _scriptPath));
+                    }
+                }
+            }
+
+            public override AstVisitAction VisitScriptBlock(ScriptBlockAst scriptBlockAst)
+            {
+                if (!_nextScriptBlockUsedInParentContext)
+                {
+                    _scriptBlockContext.Push(new KeyValuePair<ScriptBlockAst, Dictionary<string, VariableExpressionAst>>(scriptBlockAst, new Dictionary<string, VariableExpressionAst>()));
+                }
+
+                _nextScriptBlockUsedInParentContext = false;
+
+                return AstVisitAction.Continue;
+            }
+
+            public override AstVisitAction VisitAssignmentStatement(AssignmentStatementAst assignmentStatementAst)
+            {
+                Dictionary<string, VariableExpressionAst> scopeVariables = _scriptBlockContext.Peek().Value;
+
+                // Want to visit the RHS to check for used variables
+                // We visit it first since it's evaluated first, so we catch '$x = $x' when $x has never been set
+                assignmentStatementAst.Right.Visit(this);
+
+                switch (assignmentStatementAst.Left)
+                {
+                    case ArrayLiteralAst arrayLhs:
+                        foreach (ExpressionAst expression in arrayLhs.Elements)
+                        {
+                            VariableExpressionAst arrayVariableAst = GetVariableAstFromExpression(expression);
+                            scopeVariables[arrayVariableAst.VariablePath.UserPath] = arrayVariableAst;
+                        }
+
+                        break;
+
+                    default:
+                        VariableExpressionAst variableExpressionAst = GetVariableAstFromExpression(assignmentStatementAst.Left);
+                        scopeVariables[variableExpressionAst.VariablePath.UserPath] = variableExpressionAst;
+                        break;
+                }
+
+                // We don't want to visit the LHS
+                return AstVisitAction.SkipChildren;
+            }
+
+            public override AstVisitAction VisitCommand(CommandAst commandAst)
+            {
+                if (commandAst.CommandElements == null || commandAst.CommandElements.Count == 0)
+                {
+                    return AstVisitAction.Continue;
+                }
+
+                // Dot sourcing brings a script block into the current scope
+                if (commandAst.InvocationOperator == TokenKind.Dot)
+                {
+                    switch (commandAst.CommandElements[0])
+                    {
+                        case ScriptBlockExpressionAst _:
+                            _nextScriptBlockUsedInParentContext = true;
+                            break;
+                    }
+
+                    return AstVisitAction.Continue;
+                }
+
+                string commandName = commandAst.GetCommandName();
+
+                if (commandName == null)
+                {
+                    return AstVisitAction.Continue;
+                }
+
+                if (String.Equals(commandName, "Set-Variable", StringComparison.OrdinalIgnoreCase)
+                    || String.Equals(commandName, "sv", StringComparison.OrdinalIgnoreCase))
+                {
+                }
+            }
+
+            public override AstVisitAction VisitVariableExpression(VariableExpressionAst variableExpressionAst)
+            {
+                // Remove this variable from the table of defined variables if we see it
+                _scriptBlockContext.Peek().Value.Remove(variableExpressionAst.VariablePath.UserPath);
+
+                return AstVisitAction.SkipChildren;
+            }
+
+            private string TryGetStringParameter(CommandElementAst[] commandElements, string parameterName, int position, HashSet<string> switchParameters = null)
+            {
+                for (int i = 0; i < commandElements.Length; i++)
+                {
+
+                }
+            }
+
+            private VariableExpressionAst GetVariableAstFromExpression(ExpressionAst expressionAst)
+            {
+                switch (expressionAst)
+                {
+                    case VariableExpressionAst variableExpressionAst:
+                        return variableExpressionAst;
+
+                    case AttributedExpressionAst attributedExpressionAst:
+                        return GetVariableAstFromExpression(attributedExpressionAst.Child);
+
+                    default:
+                        throw new ArgumentException($"Assignment LHS '{expressionAst.Extent.Text}' was of unexpected type: '{expressionAst.GetType().FullName}'");
                 }
             }
         }
