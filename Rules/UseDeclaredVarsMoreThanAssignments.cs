@@ -11,6 +11,7 @@ using System.Globalization;
 using Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic;
 using System.Linq;
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 
 namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 {
@@ -277,17 +278,35 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
         {
             // List of known dot-sourcing commands. Boolean is meaningless - allows concurrent hash lookup
             private static ConcurrentDictionary<string, bool> s_dotSourcingCommands = new ConcurrentDictionary<string, bool>(new [] {
-                new KeyValuePair<string, bool>("ForEach-Object", true ),
+                new KeyValuePair<string, bool>("ForEach-Object", true),
                 new KeyValuePair<string, bool>("%", true ),
                 new KeyValuePair<string, bool>("Where-Object", true),
                 new KeyValuePair<string, bool>("?", true),
             }, StringComparer.OrdinalIgnoreCase);
 
+            private static ConcurrentDictionary<string, bool> s_variableCreationCommands = new ConcurrentDictionary<string, bool>(new [] {
+                new KeyValuePair<string, bool>("New-Variable", true),
+                new KeyValuePair<string, bool>("nv", true),
+                new KeyValuePair<string, bool>("Set-Variable", true),
+                new KeyValuePair<string, bool>("sv", true),
+            }, StringComparer.OrdinalIgnoreCase);
+
+            private static ConcurrentDictionary<string, bool> s_variableCreationCommandSwitches = new ConcurrentDictionary<string, bool>(new [] {
+                new KeyValuePair<string, bool>("Force", true),
+                new KeyValuePair<string, bool>("PassThru", true),
+                new KeyValuePair<string, bool>("WhatIf", true),
+                new KeyValuePair<string, bool>("Confirm", true),
+            });
+
+            private static ConcurrentDictionary<string, bool> s_getVariableCommandSwitches = new ConcurrentDictionary<string, bool>(new []
+            {
+                new KeyValuePair<string, bool>("ValueOnly", true),
+            });
 
             private readonly IRule _rule;
             private readonly string _scriptPath;
             private readonly List<DiagnosticRecord> _diagnostics;
-            private readonly Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, VariableExpressionAst>>> _scriptBlockContext;
+            private readonly Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>> _scriptBlockContext;
 
             private bool _nextScriptBlockUsedInParentContext;
 
@@ -296,7 +315,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 _rule = rule;
                 _scriptPath = scriptPath;
                 _diagnostics = new List<DiagnosticRecord>();
-                _scriptBlockContext = new Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, VariableExpressionAst>>>();
+                _scriptBlockContext = new Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>>();
                 _nextScriptBlockUsedInParentContext = false;
             }
 
@@ -307,21 +326,30 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             public void PostVisit(Ast ast)
             {
+                // If we have no AST context on the stack, there's nothing to do
                 if (_scriptBlockContext.Count == 0)
                 {
                     return;
                 }
 
+                // See if we're leaving the context of the last scriptblock we entered
+                // and if so, pop it off and see if any of the variables in that scope went unused
                 if (_scriptBlockContext.Peek().Key == ast)
                 {
-                    Dictionary<string, VariableExpressionAst> unusedVariables = _scriptBlockContext.Pop().Value;
-                    foreach (VariableExpressionAst variable in unusedVariables.Values)
+                    Dictionary<string, ExpressionAst> unusedVariables = _scriptBlockContext.Pop().Value;
+                    foreach (ExpressionAst variableDefinition in unusedVariables.Values)
                     {
-                        string variableName = variable.VariablePath.UserPath;
+                        if (!TryGetVariableNameFromExpression(variableDefinition, out string variableName))
+                        {
+                            // We should only have added variable asts and set/new-variable arguments
+                            throw new InvalidOperationException(
+                                $"Unexpected variable AST recorded '{variableDefinition}' of type '{variableDefinition.GetType().FullName}'");
+                        }
+
                         _diagnostics.Add(
                             new DiagnosticRecord(
                                 string.Format(CultureInfo.CurrentCulture, Strings.UseDeclaredVarsMoreThanAssignmentsError, variableName),
-                                variable.Extent,
+                                variableDefinition.Extent,
                                 _rule.GetName(),
                                 DiagnosticSeverity.Warning,
                                 _scriptPath));
@@ -331,11 +359,14 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             public override AstVisitAction VisitScriptBlock(ScriptBlockAst scriptBlockAst)
             {
+                // If this scriptblock isn't being effectively dot-sourced into our current scope
+                // we must treat it as a fresh scope
                 if (!_nextScriptBlockUsedInParentContext)
                 {
-                    _scriptBlockContext.Push(new KeyValuePair<ScriptBlockAst, Dictionary<string, VariableExpressionAst>>(scriptBlockAst, new Dictionary<string, VariableExpressionAst>()));
+                    _scriptBlockContext.Push(new KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>(scriptBlockAst, new Dictionary<string, ExpressionAst>()));
                 }
 
+                // Reset our command condition here
                 _nextScriptBlockUsedInParentContext = false;
 
                 return AstVisitAction.Continue;
@@ -343,7 +374,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             public override AstVisitAction VisitAssignmentStatement(AssignmentStatementAst assignmentStatementAst)
             {
-                Dictionary<string, VariableExpressionAst> scopeVariables = _scriptBlockContext.Peek().Value;
+                Dictionary<string, ExpressionAst> scopeVariables = _scriptBlockContext.Peek().Value;
 
                 // Want to visit the RHS to check for used variables
                 // We visit it first since it's evaluated first, so we catch '$x = $x' when $x has never been set
@@ -372,6 +403,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             public override AstVisitAction VisitCommand(CommandAst commandAst)
             {
+                // If the command is mysteriously absent, move on with our lives
                 if (commandAst.CommandElements == null || commandAst.CommandElements.Count == 0)
                 {
                     return AstVisitAction.Continue;
@@ -397,10 +429,44 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                     return AstVisitAction.Continue;
                 }
 
-                if (String.Equals(commandName, "Set-Variable", StringComparison.OrdinalIgnoreCase)
-                    || String.Equals(commandName, "sv", StringComparison.OrdinalIgnoreCase))
+                // If the next command effectively dot-sources a scriptblock,
+                // mark this and continue
+                if (s_dotSourcingCommands.ContainsKey(commandName))
                 {
+                    _nextScriptBlockUsedInParentContext = true;
+                    return AstVisitAction.Continue;
                 }
+
+                Dictionary<string, ExpressionAst> scopeVariables = _scriptBlockContext.Peek().Value;
+
+                // We may encounter a Set-Variable (etc), which we treat as assignment
+                // The parameters here happen to be common to the variable definition cmdlets
+                // If s_variableCreateCommands is updated, this logic will need to be altered
+                if (s_variableCreationCommands.ContainsKey(commandName)
+                    && TryGetVariableNameFromParameters(commandAst.CommandElements, s_variableCreationCommandSwitches, out ExpressionAst createdVariableNameExpression))
+                {
+                    if (createdVariableNameExpression is StringConstantExpressionAst stringConstantExpression)
+                    {
+                        scopeVariables[stringConstantExpression.Value] = createdVariableNameExpression;
+                    }
+
+                    return AstVisitAction.Continue;
+                }
+
+                // Get-Variable behaves as a variable reference
+                if ((String.Equals(commandName, "Get-Variable", StringComparison.OrdinalIgnoreCase)
+                    || String.Equals(commandName, "gv", StringComparison.OrdinalIgnoreCase))
+                    && TryGetVariableNameFromParameters(commandAst.CommandElements, s_getVariableCommandSwitches, out ExpressionAst usedVariableExpression))
+                {
+                    if (usedVariableExpression is StringConstantExpressionAst stringConstantExpression)
+                    {
+                        scopeVariables.Remove(stringConstantExpression.Value);
+                    }
+
+                    return AstVisitAction.Continue;
+                }
+
+                return AstVisitAction.Continue;
             }
 
             public override AstVisitAction VisitVariableExpression(VariableExpressionAst variableExpressionAst)
@@ -411,12 +477,90 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 return AstVisitAction.SkipChildren;
             }
 
-            private string TryGetStringParameter(CommandElementAst[] commandElements, string parameterName, int position, HashSet<string> switchParameters = null)
+            private bool TryGetVariableNameFromParameters(
+                ReadOnlyCollection<CommandElementAst> commandElements,
+                IReadOnlyDictionary<string, bool> switchParameters,
+                out ExpressionAst parameterValueExpression)
             {
-                for (int i = 0; i < commandElements.Length; i++)
-                {
+                // We have three possibilities with multiple cases:
+                // - The value is passed positionally:
+                //   + Set-Variable x 'Hi'
+                //   + Set-Variable -Value 'Hi' x
+                //   + Set-Variable -Value 'Hi' -Force x
+                // - The value is passed by parameter:
+                //   + Set-Variable -Name x 'Hi'
+                //   + Set-Variable -Name:x 'Hi'
+                //   + Set-Variable 'Hi' -Name x
+                //   + Set-Variable -Force 'Hi' -Name x
+                // - The command is semantically invalid (in which case we ignore it):
+                //   + Set-Variable -Name -Force x 'Hi'
+                //   + Set-Variable -Name x -Value
+                //
+                // We're forced to collect all the parameters because of cases like:
+                //   Set-Variable 'Hi' -Name x
 
+                bool seenFirstPosition = false;
+                string currentParameterName = null;
+                ExpressionAst firstPositionalParameter = null;
+                var namedParameters = new Dictionary<string, ExpressionAst>();
+                for (int i = 0; i < commandElements.Count; i++)
+                {
+                    CommandElementAst commandElement = commandElements[i];
+
+                    switch (commandElement)
+                    {
+                        case CommandParameterAst parameterAst:
+                            // The command is invalid
+                            if (currentParameterName != null)
+                            {
+                                parameterValueExpression = null;
+                                return false;
+                            }
+
+                            // Skip over switches
+                            if (switchParameters.ContainsKey(parameterAst.ParameterName))
+                            {
+                                continue;
+                            }
+
+                            // Collect parameters that come with their argument
+                            if (parameterAst.Argument != null)
+                            {
+                                namedParameters[parameterAst.ParameterName] = parameterAst.Argument;
+                                continue;
+                            }
+
+                            // Set up collecting the argument for this parameter
+                            currentParameterName = parameterAst.ParameterName;
+                            continue;
+
+                        case ExpressionAst argumentAst:
+                            // Collect the argument if we have the name
+                            if (currentParameterName != null)
+                            {
+                                namedParameters[currentParameterName] = argumentAst;
+                                currentParameterName = null;
+                                continue;
+                            }
+
+                            // If this is the first positional parameter, remember it
+                            if (!seenFirstPosition)
+                            {
+                                firstPositionalParameter = argumentAst;
+                                seenFirstPosition = true;
+                            }
+                            continue;
+                    }
                 }
+
+                if (namedParameters.TryGetValue("Name", out parameterValueExpression))
+                {
+                    return true;
+                }
+
+                parameterValueExpression = firstPositionalParameter;
+                return parameterValueExpression != null;
+
             }
 
             private VariableExpressionAst GetVariableAstFromExpression(ExpressionAst expressionAst)
@@ -431,6 +575,24 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
                     default:
                         throw new ArgumentException($"Assignment LHS '{expressionAst.Extent.Text}' was of unexpected type: '{expressionAst.GetType().FullName}'");
+                }
+            }
+
+            private bool TryGetVariableNameFromExpression(ExpressionAst expressionAst, out string variableName)
+            {
+                switch (expressionAst)
+                {
+                    case VariableExpressionAst variableExpressionAst:
+                        variableName = variableExpressionAst.VariablePath.UserPath;
+                        return true;
+
+                    case StringConstantExpressionAst stringConstantExpressionAst:
+                        variableName = stringConstantExpressionAst.Value;
+                        return true;
+
+                    default:
+                        variableName = null;
+                        return false;
                 }
             }
         }
