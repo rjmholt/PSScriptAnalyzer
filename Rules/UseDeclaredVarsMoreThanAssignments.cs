@@ -134,16 +134,16 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 new KeyValuePair<string, bool>("sv", true),
             }, StringComparer.OrdinalIgnoreCase);
 
-            private static ConcurrentDictionary<string, bool> s_variableCreationCommandSwitches = new ConcurrentDictionary<string, bool>(new [] {
-                new KeyValuePair<string, bool>("Force", true),
-                new KeyValuePair<string, bool>("PassThru", true),
-                new KeyValuePair<string, bool>("WhatIf", true),
-                new KeyValuePair<string, bool>("Confirm", true),
+            private static ConcurrentDictionary<string, string> s_variableCreationCommandSwitches = new ConcurrentDictionary<string, string>(new [] {
+                new KeyValuePair<string, string>("Force", "f"),
+                new KeyValuePair<string, string>("PassThru", "p"),
+                new KeyValuePair<string, string>("WhatIf", "wh"),
+                new KeyValuePair<string, string>("Confirm", "c"),
             });
 
-            private static ConcurrentDictionary<string, bool> s_getVariableCommandSwitches = new ConcurrentDictionary<string, bool>(new []
+            private static ConcurrentDictionary<string, string> s_getVariableCommandSwitches = new ConcurrentDictionary<string, string>(new []
             {
-                new KeyValuePair<string, bool>("ValueOnly", true),
+                new KeyValuePair<string, string>("ValueOnly", "v"),
             });
 
             private readonly IRule _rule;
@@ -227,6 +227,9 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
                 switch (assignmentStatementAst.Left)
                 {
+                    case MemberExpressionAst memberExpressionAst:
+                        break;
+
                     case ArrayLiteralAst arrayLhs:
                         foreach (ExpressionAst expression in arrayLhs.Elements)
                         {
@@ -341,7 +344,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             private static bool TryGetVariableNameFromParameters(
                 ReadOnlyCollection<CommandElementAst> commandElements,
-                IReadOnlyDictionary<string, bool> switchParameters,
+                IReadOnlyDictionary<string, string> switchParameters,
                 out ExpressionAst parameterValueExpression)
             {
                 // We have three possibilities with multiple cases:
@@ -364,7 +367,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 bool seenFirstPosition = false;
                 string currentParameterName = null;
                 ExpressionAst firstPositionalParameter = null;
-                var namedParameters = new Dictionary<string, ExpressionAst>();
+                var namedParameters = new Dictionary<string, ExpressionAst>(StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < commandElements.Count; i++)
                 {
                     CommandElementAst commandElement = commandElements[i];
@@ -380,7 +383,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                             }
 
                             // Skip over switches
-                            if (switchParameters.ContainsKey(parameterAst.ParameterName))
+                            if (IsInParameterDict(switchParameters, parameterAst.ParameterName))
                             {
                                 continue;
                             }
@@ -415,7 +418,10 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                     }
                 }
 
-                if (namedParameters.TryGetValue("Name", out parameterValueExpression))
+                if (namedParameters.TryGetValue("Name", out parameterValueExpression)
+                    || namedParameters.TryGetValue("n", out parameterValueExpression)
+                    || namedParameters.TryGetValue("na", out parameterValueExpression)
+                    || namedParameters.TryGetValue("nam", out parameterValueExpression))
                 {
                     return true;
                 }
@@ -456,6 +462,25 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                         variableName = null;
                         return false;
                 }
+            }
+
+            private static bool IsInParameterDict(IReadOnlyDictionary<string, string> parameters, string parameterName)
+            {
+                if (parameters.ContainsKey(parameterName))
+                {
+                    return true;
+                }
+
+                foreach (KeyValuePair<string, string> possibleParameter in parameters)
+                {
+                    if (parameterName.StartsWith(possibleParameter.Value)
+                        && possibleParameter.Key.IndexOf(parameterName) >= 0)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         }
     }
