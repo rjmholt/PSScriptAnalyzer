@@ -150,8 +150,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             private readonly string _scriptPath;
             private readonly List<DiagnosticRecord> _diagnostics;
             private readonly Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>> _scriptBlockContext;
-
-            private bool _nextScriptBlockUsedInParentContext;
+            private readonly HashSet<ScriptBlockAst> _dotSourcedScriptBlocks;
 
             public Visitor(IRule rule, string scriptPath)
             {
@@ -159,7 +158,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 _scriptPath = scriptPath;
                 _diagnostics = new List<DiagnosticRecord>();
                 _scriptBlockContext = new Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>>();
-                _nextScriptBlockUsedInParentContext = false;
+                _dotSourcedScriptBlocks = new HashSet<ScriptBlockAst>();
             }
 
             public IEnumerable<DiagnosticRecord> GetDiagnostics()
@@ -206,15 +205,14 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             public override AstVisitAction VisitScriptBlock(ScriptBlockAst scriptBlockAst)
             {
-                // If this scriptblock isn't being effectively dot-sourced into our current scope
-                // we must treat it as a fresh scope
-                if (!_nextScriptBlockUsedInParentContext)
+                // If we're not looking at a scriptblock that's being dot-sourced, push a new scope
+                if (!_dotSourcedScriptBlocks.Remove(scriptBlockAst))
                 {
-                    _scriptBlockContext.Push(new KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>(scriptBlockAst, new Dictionary<string, ExpressionAst>()));
+                    _scriptBlockContext.Push(
+                        new KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>(
+                            scriptBlockAst,
+                            new Dictionary<string, ExpressionAst>(StringComparer.OrdinalIgnoreCase)));
                 }
-
-                // Reset our command condition here
-                _nextScriptBlockUsedInParentContext = false;
 
                 return AstVisitAction.Continue;
             }
@@ -244,7 +242,8 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                         break;
                 }
 
-                // We don't want to visit the LHS
+                // We don't want to visit the LHS,
+                // since we don't want to register them as variable usages
                 return AstVisitAction.SkipChildren;
             }
 
@@ -261,8 +260,8 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 {
                     switch (commandAst.CommandElements[0])
                     {
-                        case ScriptBlockExpressionAst _:
-                            _nextScriptBlockUsedInParentContext = true;
+                        case ScriptBlockExpressionAst scriptBlockExpression:
+                            _dotSourcedScriptBlocks.Add(scriptBlockExpression.ScriptBlock);
                             break;
                     }
 
@@ -270,7 +269,6 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 }
 
                 string commandName = commandAst.GetCommandName();
-
                 if (commandName == null)
                 {
                     return AstVisitAction.Continue;
@@ -280,7 +278,10 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 // mark this and continue
                 if (s_dotSourcingCommands.ContainsKey(commandName))
                 {
-                    _nextScriptBlockUsedInParentContext = true;
+                    foreach (ScriptBlockAst scriptBlock in GetScriptBlockAstsFromCommandElements(commandAst.CommandElements))
+                    {
+                        _dotSourcedScriptBlocks.Add(scriptBlock);
+                    }
                     return AstVisitAction.Continue;
                 }
 
@@ -324,7 +325,21 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 return AstVisitAction.SkipChildren;
             }
 
-            private bool TryGetVariableNameFromParameters(
+            public IEnumerable<ScriptBlockAst> GetScriptBlockAstsFromCommandElements(
+                ReadOnlyCollection<CommandElementAst> commandElements)
+            {
+                foreach (CommandElementAst commandElement in commandElements)
+                {
+                    switch (commandElement)
+                    {
+                        case ScriptBlockExpressionAst scriptBlockExpression:
+                            yield return scriptBlockExpression.ScriptBlock;
+                            break;
+                    }
+                }
+            }
+
+            private static bool TryGetVariableNameFromParameters(
                 ReadOnlyCollection<CommandElementAst> commandElements,
                 IReadOnlyDictionary<string, bool> switchParameters,
                 out ExpressionAst parameterValueExpression)
@@ -410,7 +425,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             }
 
-            private VariableExpressionAst GetVariableAstFromExpression(ExpressionAst expressionAst)
+            private static VariableExpressionAst GetVariableAstFromExpression(ExpressionAst expressionAst)
             {
                 switch (expressionAst)
                 {
@@ -425,7 +440,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 }
             }
 
-            private bool TryGetVariableNameFromExpression(ExpressionAst expressionAst, out string variableName)
+            private static bool TryGetVariableNameFromExpression(ExpressionAst expressionAst, out string variableName)
             {
                 switch (expressionAst)
                 {
