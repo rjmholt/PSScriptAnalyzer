@@ -149,7 +149,8 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             private readonly IRule _rule;
             private readonly string _scriptPath;
             private readonly List<DiagnosticRecord> _diagnostics;
-            private readonly Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>> _scriptBlockContext;
+            private readonly Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, Ast>>> _scriptBlockContext;
+            private readonly Dictionary<string, Ast> _scriptScopeVariables;
             private readonly HashSet<ScriptBlockAst> _dotSourcedScriptBlocks;
 
             public Visitor(IRule rule, string scriptPath)
@@ -157,7 +158,8 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 _rule = rule;
                 _scriptPath = scriptPath;
                 _diagnostics = new List<DiagnosticRecord>();
-                _scriptBlockContext = new Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>>();
+                _scriptScopeVariables = new Dictionary<string, Ast>(StringComparer.OrdinalIgnoreCase);
+                _scriptBlockContext = new Stack<KeyValuePair<ScriptBlockAst, Dictionary<string, Ast>>>();
                 _dotSourcedScriptBlocks = new HashSet<ScriptBlockAst>();
             }
 
@@ -182,7 +184,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 // looking up the stack only happens at runtime, so it's something we can't analyze
                 if (_scriptBlockContext.Peek().Key == ast)
                 {
-                    Dictionary<string, ExpressionAst> unusedVariables = _scriptBlockContext.Pop().Value;
+                    Dictionary<string, Ast> unusedVariables = _scriptBlockContext.Pop().Value;
                     foreach (ExpressionAst variableDefinition in unusedVariables.Values)
                     {
                         if (!TryGetVariableNameFromExpression(variableDefinition, out string variableName))
@@ -209,9 +211,9 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 if (!_dotSourcedScriptBlocks.Remove(scriptBlockAst))
                 {
                     _scriptBlockContext.Push(
-                        new KeyValuePair<ScriptBlockAst, Dictionary<string, ExpressionAst>>(
+                        new KeyValuePair<ScriptBlockAst, Dictionary<string, Ast>>(
                             scriptBlockAst,
-                            new Dictionary<string, ExpressionAst>(StringComparer.OrdinalIgnoreCase)));
+                            new Dictionary<string, Ast>(StringComparer.OrdinalIgnoreCase)));
                 }
 
                 return AstVisitAction.Continue;
@@ -219,7 +221,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             public override AstVisitAction VisitAssignmentStatement(AssignmentStatementAst assignmentStatementAst)
             {
-                Dictionary<string, ExpressionAst> scopeVariables = _scriptBlockContext.Peek().Value;
+                Dictionary<string, Ast> scopeVariables = _scriptBlockContext.Peek().Value;
 
                 // Want to visit the RHS to check for used variables
                 // We visit it first since it's evaluated first, so we catch '$x = $x' when $x has never been set
@@ -228,6 +230,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 switch (assignmentStatementAst.Left)
                 {
                     case MemberExpressionAst memberExpressionAst:
+                        memberExpressionAst.Visit(this);
                         break;
 
                     case ArrayLiteralAst arrayLhs:
@@ -288,7 +291,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                     return AstVisitAction.Continue;
                 }
 
-                Dictionary<string, ExpressionAst> scopeVariables = _scriptBlockContext.Peek().Value;
+                Dictionary<string, Ast> scopeVariables = _scriptBlockContext.Peek().Value;
 
                 // We may encounter a Set-Variable (etc), which we treat as assignment
                 // The parameters here happen to be common to the variable definition cmdlets
@@ -339,6 +342,38 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                             yield return scriptBlockExpression.ScriptBlock;
                             break;
                     }
+                }
+            }
+
+            private void RegisterVariableDeclaration(string variableName, Ast definingAst, VariableScope scope)
+            {
+                switch (scope)
+                {
+                    case VariableScope.Private:
+                    case VariableScope.Local:
+                    case VariableScope.Normal:
+                        _scriptBlockContext.Peek().Value[variableName] = definingAst;
+                        return;
+
+                    case VariableScope.Script:
+                        _scriptScopeVariables[variableName] = definingAst;
+                        return;
+                }
+            }
+
+            private void RegisterVariableUse(string variableName, VariableScope scope)
+            {
+                switch (scope)
+                {
+                    case VariableScope.Private:
+                    case VariableScope.Local:
+                    case VariableScope.Normal:
+                        _scriptBlockContext.Peek().Value.Remove(variableName);
+                        return;
+
+                    case VariableScope.Script:
+                        _scriptScopeVariables.Remove(variableName);
+                        return;
                 }
             }
 
@@ -482,6 +517,18 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
                 return false;
             }
+        }
+
+        private enum VariableScope
+        {
+            Unknown = 0,
+            Normal,
+            Private,
+            Local,
+            Script,
+            Global,
+            Env,
+            Using,
         }
     }
 }
