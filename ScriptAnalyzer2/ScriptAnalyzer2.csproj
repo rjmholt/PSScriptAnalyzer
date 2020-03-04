@@ -1,0 +1,56 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netcoreapp3.1;netcoreapp2.1;net452</TargetFrameworks>
+    <AssemblyName>Microsoft.PowerShell.ScriptAnalyzer</AssemblyName>
+    <RootNamespace>Microsoft.PowerShell.ScriptAnalyzer</RootNamespace>
+    <Configurations>PS7;PS6;PS5;PS4;PS3</Configurations>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1' AND '$(Configuration)' == 'PS7'">
+    <DefineConstants>$(DefineConstants);PS7</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1' AND '$(Configuration)' == 'PS6'">
+    <DefineConstants>$(DefineConstants);PS6</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net452' AND '$(Configuration)' == 'PS5'">
+    <DefineConstants>$(DefineConstants);PS5</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net452' AND '$(Configuration)' == 'PS4'">
+    <DefineConstants>$(DefineConstants);PS4</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net452' AND '$(Configuration)' == 'PS3'">
+    <DefineConstants>$(DefineConstants);PS3</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1' AND '$(Configuration)' == 'PS7'">
+    <PackageReference Include="System.Management.Automation" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1' AND '$(Configuration)' == 'PS6'">
+    <PackageReference Include="System.Management.Automation" Version="6.2.4" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net452' AND '$(Configuration)' == 'PS5'">
+    <PackageReference Include="Microsoft.PowerShell.5.ReferenceAssemblies" Version="1.1.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net452' AND '$(Configuration)' == 'PS4'">
+    <PackageReference Include="Microsoft.PowerShell.4.ReferenceAssemblies" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net452' AND '$(Configuration)' == 'PS3'">
+    <PackageReference Include="Microsoft.PowerShell.3.ReferenceAssemblies" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Legacy\**" />
+    <EmbeddedResource Remove="Legacy\**" />
+    <None Remove="Legacy\**" />
+  </ItemGroup>
+
+</Project>
