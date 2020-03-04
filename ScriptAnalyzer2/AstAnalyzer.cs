@@ -8,9 +8,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 {
     public class AstAnalyzer
     {
-        private readonly IRuleProvider _ruleProvider;
+        private readonly IRuleFactory _ruleProvider;
 
-        internal AstAnalyzer(IRuleProvider ruleProvider)
+        internal AstAnalyzer(IRuleFactory ruleProvider)
         {
             _ruleProvider = ruleProvider;
         }

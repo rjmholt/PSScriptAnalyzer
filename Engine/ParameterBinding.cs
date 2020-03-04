@@ -4,10 +4,6 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
 {
     public static class ParameterBinding
     {
-        public ParameterInvocationInfo BindParameters(CommandAst commandAst)
-        {
-
-        }
     }
 
     public interface ICommandParameterInfo

@@ -15,8 +15,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
 
         string SourcePath { get; }
 
-        SourceType SourceType { get; }
-
         DiagnosticSeverity Severity { get; }
     }
 

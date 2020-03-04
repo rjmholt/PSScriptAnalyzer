@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public interface IRuleProvider
+    public interface IRuleFactory
     {
         IEnumerable<IAstRule> GetAstRules();
 

@@ -5,11 +5,11 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public class CompositeRuleProvider : IRuleProvider
+    public class CompositeRuleFactory : IRuleFactory
     {
-        private readonly IReadOnlyList<IRuleProvider> _ruleProviders;
+        private readonly IReadOnlyList<IRuleFactory> _ruleProviders;
 
-        public CompositeRuleProvider(IReadOnlyList<IRuleProvider> ruleProviders)
+        public CompositeRuleFactory(IReadOnlyList<IRuleFactory> ruleProviders)
         {
             _ruleProviders = ruleProviders;
         }
@@ -17,7 +17,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         public IEnumerable<IAstRule> GetAstRules()
         {
             var rules = new List<IAstRule>();
-            foreach (IRuleProvider ruleProvider in _ruleProviders)
+            foreach (IRuleFactory ruleProvider in _ruleProviders)
             {
                 rules.AddRange(ruleProvider.GetAstRules());
             }
@@ -27,7 +27,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         public IEnumerable<ITokenRule> GetTokenRules()
         {
             var rules = new List<ITokenRule>();
-            foreach (IRuleProvider ruleProvider in _ruleProviders)
+            foreach (IRuleFactory ruleProvider in _ruleProviders)
             {
                 rules.AddRange(ruleProvider.GetTokenRules());
             }

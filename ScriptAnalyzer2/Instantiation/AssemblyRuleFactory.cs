@@ -5,21 +5,21 @@ using System.Reflection;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public class AssemblyRuleProvider : IRuleProvider
+    public class AssemblyRuleFactory : IRuleFactory
     {
-        public static AssemblyRuleProvider FromAssembly(string assemblyPath)
+        public static AssemblyRuleFactory FromAssembly(string assemblyPath)
         {
             return FromAssembly(Assembly.LoadFile(assemblyPath));
         }
 
-        public static AssemblyRuleProvider FromAssembly(Assembly assembly)
+        public static AssemblyRuleFactory FromAssembly(Assembly assembly)
         {
-            return new AssemblyRuleProvider(assembly);
+            return new AssemblyRuleFactory(assembly);
         }
 
         private readonly Assembly _assembly;
 
-        private AssemblyRuleProvider(Assembly assembly)
+        private AssemblyRuleFactory(Assembly assembly)
         {
             _assembly = assembly;
         }

@@ -1,4 +1,4 @@
-﻿namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
+﻿namespace Microsoft.PowerShell.ScriptAnalyzer
 {
     public enum DiagnosticSeverity
     {
