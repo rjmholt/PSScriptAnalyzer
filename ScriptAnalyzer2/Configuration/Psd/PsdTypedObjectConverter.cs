@@ -1,8 +1,10 @@
 ﻿using Microsoft.VisualBasic;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Management.Automation.Language;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
@@ -31,11 +33,14 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
     internal class PsdTypedObjectConverter
     {
+        private readonly PsdDataParser _psdDataParser;
+
         private readonly IReadOnlyList<PsdTypeConverter> _converters;
 
         public PsdTypedObjectConverter(IReadOnlyList<PsdTypeConverter> converters)
         {
             _converters = converters;
+            _psdDataParser = new PsdDataParser();
         }
 
         public PsdTypedObjectConverter() : this(converters: null)
@@ -45,6 +50,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         public TTarget Convert<TTarget>(Ast ast)
         {
             object conversionResult;
+
+            if (typeof(TTarget) == typeof(object))
+            {
+                return (TTarget)_psdDataParser.ConvertAstValue((ExpressionAst)ast);
+            }
 
             if (TryConvertVariableExpression(typeof(TTarget), ast, out conversionResult))
             {
@@ -77,13 +87,59 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             // - arrays
             // - dictionaries
             // - objects
+            if (TryConvertDictionary(typeof(TTarget), ast, out conversionResult))
+            {
+                return (TTarget)conversionResult;
+            }
+
+            if (TryConvertEnumerable(typeof(TTarget), ast, out conversionResult))
+            {
+                return (TTarget)conversionResult;
+            }
+
+            return ConvertObject(typeof(TTarget), ast);
         }
 
-        private bool TryConvertVariableExpression(Type target, Ast ast, out object value)
+        private bool TryConvertDictionary(Type target, Ast ast, out object result)
+        {
+            bool isGeneric = ImplementsGenericInterface(
+                target,
+                typeof(IReadOnlyDictionary<,>),
+                out IReadOnlyList<Type> genericParameters);
+
+            if (!isGeneric
+                && !typeof(IDictionary).IsAssignableFrom(target))
+            {
+                result = null;
+                return false;
+            }
+
+            if (!(ast is HashtableAst hashtableAst))
+            {
+                throw CreateConversionMismatchException(ast, target);
+            }
+
+            if (!isGeneric)
+            {
+                var dict = new Dictionary<object, object>();
+
+                foreach (Tuple<ExpressionAst, StatementAst> entry in hashtableAst.KeyValuePairs)
+                {
+                    object key = _psdDataParser.ConvertAstValue(entry.Item1);
+                    object value = _psdDataParser.ConvertAstValue(GetExpressionFromStatementAst(entry.Item2));
+                    dict[key] = value;
+                }
+
+                result = dict;
+                return true;
+            }
+        }
+
+        private bool TryConvertVariableExpression(Type target, Ast ast, out object result)
         {
             if (!(ast is VariableExpressionAst variableExpressionAst))
             {
-                value = null;
+                result = null;
                 return false;
             }
 
@@ -96,7 +152,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
                     throw new ArgumentException($"Cannot convert value type '{target.FullName}' to null");
                 }
 
-                value = null;
+                result = null;
                 return true;
             }
 
@@ -104,13 +160,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             {
                 if (variableName.Equals("true", StringComparison.OrdinalIgnoreCase))
                 {
-                    value = true;
+                    result = true;
                     return true;
                 }
 
                 if (variableName.Equals("false", StringComparison.OrdinalIgnoreCase))
                 {
-                    value = false;
+                    result = false;
                     return true;
                 }
 
@@ -127,24 +183,24 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
                 return stringConstantExpression.Value;
             }
 
-            throw CreateBadAstException(ast, typeof(string).FullName);
+            throw CreateConversionMismatchException(ast, typeof(string));
         }
 
-        private bool TryConvertNumber(Type target, Ast ast, out object value)
+        private bool TryConvertNumber(Type target, Ast ast, out object result)
         {
             if (IsNumericType(target))
             {
                 if (!(ast is ConstantExpressionAst constantExpression)
                     || !IsNumericType(constantExpression.StaticType))
                 {
-                    throw CreateBadAstException(ast, target.FullName);
+                    throw CreateConversionMismatchException(ast, target);
                 }
 
-                value = System.Convert.ChangeType(constantExpression.Value, target);
+                result = System.Convert.ChangeType(constantExpression.Value, target);
                 return true;
             }
 
-            value = null;
+            result = null;
             return false;
         }
 
@@ -156,7 +212,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
                 return dateTime;
             }
 
-            throw CreateBadAstException(ast, typeof(DateTime).FullName);
+            throw CreateConversionMismatchException(ast, typeof(DateTime));
         }
 
         private static bool IsNumericType(Type type)
@@ -180,9 +236,38 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             return false;
         }
 
-        private static Exception CreateBadAstException(Ast ast, string expectedType)
+        private ExpressionAst GetExpressionFromStatementAst(StatementAst stmtAst)
         {
-            return new ArgumentException($"Unable to convert ast '{ast.Extent.Text}' of type '{ast.GetType().FullName}' to type '{expectedType}'");
+            return (stmtAst as PipelineAst)?.GetPureExpression()
+                ?? throw new ArgumentException($"'{stmtAst}' must be a pure pipeline AST to convert a value");
+        }
+
+        private static Exception CreateConversionMismatchException(Ast ast, Type type)
+        {
+            return new ArgumentException($"Unable to convert ast '{ast.Extent.Text}' of type '{ast.GetType().FullName}' to type '{type.FullName}'");
+        }
+
+        private static bool ImplementsGenericInterface(
+            Type target,
+            Type genericInterface,
+            out IReadOnlyList<Type> genericParameters)
+        {
+            foreach (Type implementedInterface in target.GetInterfaces())
+            {
+                if (!implementedInterface.IsGenericType)
+                {
+                    continue;
+                }
+
+                if (implementedInterface.GetGenericTypeDefinition() == genericInterface)
+                {
+                    genericParameters = implementedInterface.GetGenericArguments();
+                    return true;
+                }
+            }
+
+            genericParameters = null;
+            return false;
         }
     }
 }
