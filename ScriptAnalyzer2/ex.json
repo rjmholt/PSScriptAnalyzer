@@ -1,0 +1,11 @@
+{
+  "RulePaths": ["./here"],
+  "Rules": {
+    "PSBananaDuck": {
+      "Common": {
+        "Enabled": true
+      },
+      "Banana": "Duck"
+    }
+  }
+}
