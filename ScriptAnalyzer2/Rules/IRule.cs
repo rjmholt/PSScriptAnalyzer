@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Management.Automation.Language;
-using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
 {
@@ -18,9 +16,17 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         DiagnosticSeverity Severity { get; }
     }
 
+    public interface IRule<TConfiguration> : IRule
+    {
+    }
+
     public interface IAstRule : IRule
     {
         IReadOnlyList<ScriptDiagnostic> AnalyzeScript(Ast ast, string scriptPath);
+    }
+
+    public interface IAstRule<TConfiguration> : IAstRule
+    {
     }
 
     public interface ITokenRule : IRule
@@ -28,4 +34,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         IReadOnlyList<ScriptDiagnostic> AnalyzeScript(IReadOnlyList<Token> tokens, string scriptPath);
     }
 
+    public interface ITokenRule<TConfiguration> : ITokenRule
+    {
+    }
 }
