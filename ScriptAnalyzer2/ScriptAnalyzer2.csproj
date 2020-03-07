@@ -27,11 +27,11 @@
     <DefineConstants>$(DefineConstants);PS3</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1' AND '$(Configuration)' == 'PS7'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
     <PackageReference Include="System.Management.Automation" Version="7.0.0" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1' AND '$(Configuration)' == 'PS6'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
     <PackageReference Include="System.Management.Automation" Version="6.2.4" />
   </ItemGroup>
 
