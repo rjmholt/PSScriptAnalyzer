@@ -21,7 +21,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         public override bool CanConvert(Type type)
         {
-            return type is TTarget;
+            return type == typeof(TTarget);
         }
 
         public override object ConvertPsdType(Type type, ExpressionAst psdAst)
