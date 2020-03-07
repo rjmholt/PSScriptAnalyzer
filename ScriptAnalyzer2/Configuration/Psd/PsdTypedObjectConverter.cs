@@ -1,14 +1,11 @@
 ﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Management.Automation.Language;
-using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Runtime.Serialization;
-using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 {
@@ -36,12 +33,25 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
     public class PsdTypedObjectConverter
     {
+        private static readonly IReadOnlyList<Type> s_dictionaryTypes = new[]
+        {
+            typeof(IDictionary<,>),
+            typeof(Dictionary<,>),
+            typeof(IReadOnlyDictionary<,>),
+        };
+
+        private static readonly IReadOnlyList<Type> s_enumerableTypes = new[]
+        {
+            typeof(IEnumerable<>),
+            typeof(IList<>),
+            typeof(List<>),
+        };
+
         private readonly PsdDataParser _psdDataParser;
 
         private readonly IReadOnlyList<PsdTypeConverter> _converters;
 
         private readonly Dictionary<Type, PsdTypeConverter> _converterCache;
-
 
         public PsdTypedObjectConverter(IReadOnlyList<PsdTypeConverter> converters)
         {
@@ -118,6 +128,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
                 return conversionResult;
             }
 
+            if (TryConvertNullable(type, ast, out conversionResult))
+            {
+                return conversionResult;
+            }
+
             if (TryConvertDictionary(type, ast, out conversionResult))
             {
                 return conversionResult;
@@ -129,6 +144,25 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             }
 
             return ConvertPoco(type, ast);
+        }
+
+        private bool TryConvertNullable(Type target, ExpressionAst ast, out object result)
+        {
+            if (!target.IsGenericType
+                || target.GetGenericTypeDefinition() != typeof(Nullable<>))
+            {
+                result = null;
+                return false;
+            }
+
+            Type innerType = target.GetGenericArguments()[0];
+            object innerValue = Convert(innerType, ast);
+
+            result = typeof(Nullable<>)
+                .MakeGenericType(innerType)
+                .GetConstructor(new Type[] { innerType })
+                .Invoke(new object[] { innerValue });
+            return true;
         }
 
         private bool TryCustomConversion(Type target, ExpressionAst ast, out object result)
@@ -414,47 +448,267 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             }
         }
 
-        private bool TryConvertDictionary(Type target, Ast ast, out object result)
+        private bool TryConvertDictionary(Type target, ExpressionAst ast, out object result)
         {
-            bool isGeneric = ImplementsGenericInterface(
-                target,
-                typeof(IReadOnlyDictionary<,>),
-                out IReadOnlyList<Type> genericParameters);
+            var hashtableAst = ast as HashtableAst;
 
-            if (!isGeneric
-                && !typeof(IDictionary).IsAssignableFrom(target))
+            // If the types are specified as well known ones,
+            // just instantiate them now
+            if (target == typeof(Hashtable)
+                || target == typeof(IDictionary))
+            {
+                if (hashtableAst == null)
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                var hashtable = new Hashtable();
+                SetHashtableValuesInDictionary(hashtable, hashtableAst);
+                result = hashtable;
+                return true;
+            }
+
+            // If there's an unknown type that implements IDictionary,
+            // look for a convenient constructor to instantiate it
+            if (!target.IsGenericType)
+            {
+                if (!typeof(IDictionary).IsAssignableFrom(target))
+                {
+                    result = null;
+                    return false;
+                }
+
+                if (hashtableAst == null)
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                ConstructorInfo defaultCtor = target.GetConstructor(new Type[0]);
+
+                if (defaultCtor != null)
+                {
+                    var dict = (IDictionary)defaultCtor.Invoke(null);
+                    SetHashtableValuesInDictionary(dict, hashtableAst);
+                    result = dict;
+                    return true;
+                }
+
+                ConstructorInfo injectionCtor = target.GetConstructor(new Type[] { typeof(IDictionary) })
+                    ?? target.GetConstructor(new Type[] { typeof(Hashtable) });
+
+                if (injectionCtor != null)
+                {
+                    var dict = new Hashtable();
+                    SetHashtableValuesInDictionary(dict, hashtableAst);
+                    result = injectionCtor.Invoke(new object[] { dict });
+                    return true;
+                }
+
+                throw new ArgumentException($"Unable to instantiate type '{target}'");
+            }
+
+            // We have a generic type
+            Type targetBaseGenericType = target.GetGenericTypeDefinition();
+            Type[] genericTypeParameters = target.GetGenericArguments();
+
+            // Guess that this is a normal dictionary type
+            if (targetBaseGenericType == typeof(Dictionary<,>)
+                || targetBaseGenericType == typeof(IDictionary<,>)
+                || targetBaseGenericType == typeof(IReadOnlyDictionary<,>))
+            {
+                if (hashtableAst == null)
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                Type dictionaryType = typeof(Dictionary<,>)
+                    .MakeGenericType(genericTypeParameters);
+
+                object dict = dictionaryType
+                    .GetConstructor(new Type[0])
+                    .Invoke(null);
+
+                SetHashtableValuesInDictionary(dictionaryType, genericTypeParameters[0], genericTypeParameters[1], dict, hashtableAst);
+                result = dict;
+                return true;
+            }
+
+            // Otherwise, it might implement a dictionary and have a default constructor 
+            if (ImplementsGenericInterface(target, typeof(IDictionary<,>), out IReadOnlyList<Type> _))
+            {
+                if (hashtableAst == null)
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                ConstructorInfo defaultCtor = target.GetConstructor(new Type[0]);
+
+                if (defaultCtor != null)
+                {
+                    var dict = defaultCtor.Invoke(null);
+                    SetHashtableValuesInDictionary(target, genericTypeParameters[0], genericTypeParameters[1], dict, hashtableAst);
+                    result = dict;
+                    return true;
+                }
+            }
+
+            result = null;
+            return false;
+        }
+
+        private void SetHashtableValuesInDictionary(IDictionary dictionary, HashtableAst hashtableAst)
+        {
+            foreach (Tuple<ExpressionAst, StatementAst> entry in hashtableAst.KeyValuePairs)
+            {
+                object key = _psdDataParser.ConvertAstValue(entry.Item1);
+                object value = _psdDataParser.ConvertAstValue(GetExpressionFromStatementAst(entry.Item2));
+                dictionary[key] = value;
+            }
+        }
+
+        private void SetHashtableValuesInDictionary(Type dictionaryType, Type keyType, Type valueType, object dictionary, HashtableAst hashtableAst)
+        {
+            MethodInfo setter = dictionaryType.GetProperty("Item").GetSetMethod();
+
+            foreach (Tuple<ExpressionAst, StatementAst> entry in hashtableAst.KeyValuePairs)
+            {
+                object key = Convert(keyType, entry.Item1);
+                object value = Convert(valueType, GetExpressionFromStatementAst(entry.Item2));
+                setter.Invoke(dictionary, new object[] { key, value });
+            }
+        }
+
+
+        private bool TryConvertEnumerable(Type target, ExpressionAst ast, out object result)
+        {
+            if (target.IsArray)
+            {
+                if (!TryExtractExpressionArray(ast, out IReadOnlyList<ExpressionAst> arrayExpressions))
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                Type elementType = target.GetElementType();
+
+                Array array = Array.CreateInstance(elementType, arrayExpressions.Count);
+
+                for (int i = 0; i < arrayExpressions.Count; i++)
+                {
+                    array.SetValue(Convert(elementType, arrayExpressions[i]), i);
+                }
+
+                result = array;
+                return true;
+            }
+
+            if (target == typeof(IList)
+                || target == typeof(IEnumerable))
+            {
+                if (!TryExtractExpressionArray(ast, out IReadOnlyList<ExpressionAst> arrayExpressions))
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                var list = new ArrayList();
+                AddItemsToList(list, arrayExpressions);
+
+                result = list;
+                return true;
+            }
+
+            if (typeof(IList).IsAssignableFrom(target))
+            {
+                if (!TryExtractExpressionArray(ast, out IReadOnlyList<ExpressionAst> arrayExpressions))
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                ConstructorInfo defaultCtor = target.GetConstructor(new Type[0]);
+
+                if (defaultCtor != null)
+                {
+                    var list = (IList)defaultCtor.Invoke(null);
+                    AddItemsToList(list, arrayExpressions);
+                    result = list;
+                    return true;
+                }
+
+                throw new ArgumentException($"Unable to instantiate type '{target.FullName}'");
+            }
+
+            if (!target.IsGenericType)
             {
                 result = null;
                 return false;
             }
 
-            if (!(ast is HashtableAst hashtableAst))
-            {
-                throw CreateConversionMismatchException(ast, target);
-            }
+            // We have a generic type
+            Type targetBaseGenericType = target.GetGenericTypeDefinition();
+            Type[] genericTypeParameters = target.GetGenericArguments();
 
-            if (!isGeneric)
+            if (targetBaseGenericType == typeof(IEnumerable<>)
+                || targetBaseGenericType == typeof(List<>)
+                || targetBaseGenericType == typeof(IList<>))
             {
-                var dict = new Dictionary<object, object>();
-
-                foreach (Tuple<ExpressionAst, StatementAst> entry in hashtableAst.KeyValuePairs)
+                if (!TryExtractExpressionArray(ast, out IReadOnlyList<ExpressionAst> arrayExpressions))
                 {
-                    object key = _psdDataParser.ConvertAstValue(entry.Item1);
-                    object value = _psdDataParser.ConvertAstValue(GetExpressionFromStatementAst(entry.Item2));
-                    dict[key] = value;
+                    throw CreateConversionMismatchException(ast, target);
                 }
 
-                result = dict;
+                var list = (IList)typeof(List<>)
+                    .MakeGenericType(genericTypeParameters)
+                    .GetConstructor(new Type[0])
+                    .Invoke(null);
+                AddItemsToList(genericTypeParameters[0], list, arrayExpressions);
+                result = list;
                 return true;
             }
 
-            throw new NotImplementedException();
-        }
+            if (ImplementsGenericInterface(target, typeof(IList<>), out IReadOnlyList<Type> _))
+            {
+                if (!TryExtractExpressionArray(ast, out IReadOnlyList<ExpressionAst> arrayExpressions))
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
 
-        private bool TryConvertEnumerable(Type target, ExpressionAst ast, out object result)
-        {
+                ConstructorInfo defaultConstructor = target.GetConstructor(new Type[0]);
+                if (defaultConstructor != null)
+                {
+                    object list = defaultConstructor.Invoke(null);
+                    AddItemsToList(target, genericTypeParameters[0], list, arrayExpressions);
+                    result = list;
+                    return true;
+                }
+            }
+
             result = null;
             return false;
+        }
+
+        private void AddItemsToList(IList list, IEnumerable<ExpressionAst> expressions)
+        {
+            foreach (ExpressionAst expression in expressions)
+            {
+                list.Add(Convert(typeof(object), expression));
+            }
+        }
+
+        private void AddItemsToList(Type elementType, IList list, IEnumerable<ExpressionAst> expressions)
+        {
+            foreach (ExpressionAst expression in expressions)
+            {
+                list.Add(Convert(elementType, expression));
+            }
+        }
+
+        private void AddItemsToList(Type targetType, Type elementType, object list, IEnumerable<ExpressionAst> expressions)
+        {
+            MethodInfo setter = targetType.GetProperty("Item").GetSetMethod();
+
+            foreach (ExpressionAst expression in expressions)
+            {
+                setter.Invoke(list, new object[] { Convert(elementType, expression) });
+            }
         }
 
         private bool TryConvertVariableExpression(Type target, ExpressionAst ast, out object result)
@@ -469,7 +723,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
             if (variableName.Equals("null", StringComparison.OrdinalIgnoreCase))
             {
-                if (target.IsValueType)
+                if (target.IsValueType
+                    && !(target.IsGenericType && target.GetGenericTypeDefinition() == typeof(Nullable<>)))
                 {
                     throw new ArgumentException($"Cannot convert value type '{target.FullName}' to null");
                 }
@@ -535,6 +790,42 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             }
 
             throw CreateConversionMismatchException(ast, typeof(DateTime));
+        }
+
+        private bool TryExtractExpressionArray(ExpressionAst ast, out IReadOnlyList<ExpressionAst> arrayItems)
+        {
+            switch (ast)
+            {
+                case ArrayExpressionAst arrayExpressionAst:
+                    var expressions = new List<ExpressionAst>();
+
+                    foreach (StatementAst statementAst in arrayExpressionAst.SubExpression.Statements)
+                    {
+                        ExpressionAst expression = GetExpressionFromStatementAst(statementAst);
+
+                        switch (expression)
+                        {
+                            case ArrayLiteralAst subArrayLiteral:
+                                expressions.AddRange(subArrayLiteral.Elements);
+                                break;
+
+                            default:
+                                expressions.Add(expression);
+                                break;
+                        }
+                    }
+
+                    arrayItems = expressions;
+                    return true;
+
+                case ArrayLiteralAst arrayLiteralAst:
+                    arrayItems = arrayLiteralAst.Elements;
+                    return true;
+
+                default:
+                    arrayItems = null;
+                    return false;
+            }
         }
 
         private static bool IsNumericType(Type type)

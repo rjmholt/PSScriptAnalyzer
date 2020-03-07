@@ -2,6 +2,8 @@
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 using Xunit;
@@ -165,6 +167,152 @@ namespace ScriptAnalyzer2.Test
             Assert.Equal("Moo", obj.Simple.Field);
             Assert.Equal(3, obj.SubObject.Count);
             Assert.Equal("X", obj.SubObject.Name);
+        }
+
+        [Fact]
+        public void TestDictionary()
+        {
+            var obj = _converter.ParseAndConvert<Dictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
+
+            Assert.Equal("x", obj["1"].Field);
+            Assert.Equal("y", obj["2"].Field);
+        }
+
+        [Fact]
+        public void TestIDictionary()
+        {
+            var obj = _converter.ParseAndConvert<IDictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
+
+            Assert.Equal("x", obj["1"].Field);
+            Assert.Equal("y", obj["2"].Field);
+        }
+
+        [Fact]
+        public void TestReadOnlyDictionary()
+        {
+            var obj = _converter.ParseAndConvert<IReadOnlyDictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
+
+            Assert.Equal("x", obj["1"].Field);
+            Assert.Equal("y", obj["2"].Field);
+        }
+
+        [Fact]
+        public void TestHashtable()
+        {
+            var obj = _converter.ParseAndConvert<Hashtable>("@{ 1 = @{ X = 'x' }; 'hi there' = 2 }");
+
+            Assert.Equal("x", ((Hashtable)obj[1])["X"]);
+            Assert.Equal(2, obj["hi there"]);
+        }
+
+        [Fact]
+        public void TestArray()
+        {
+            var obj = _converter.ParseAndConvert<double[]>("@( 2.1, 3.8, 4.0 )");
+            Assert.Equal(new double[] { 2.1, 3.8, 4.0 }, obj);
+        }
+
+        [Fact]
+        public void TestList()
+        {
+            var obj = _converter.ParseAndConvert<List<string>>("'hi','THERE','Friend'");
+            Assert.Equal(new List<string> { "hi", "THERE", "Friend" }, obj);
+        }
+
+        [Fact]
+        public void TestGenericIEnumerable()
+        {
+            var obj = _converter.ParseAndConvert<IEnumerable<string>>("@('hi','THERE','Friend')");
+            Assert.Equal(new[] { "hi", "THERE", "Friend" }, obj);
+        }
+
+        [Fact]
+        public void TestNonGenericIEnumerable()
+        {
+            var obj = _converter.ParseAndConvert<IEnumerable>("'hi', 7, $true");
+            Assert.Equal(new object[] { "hi", 7, true }, obj);
+        }
+
+        [Fact]
+        public void TestArrayOfObject()
+        {
+            var obj = _converter.ParseAndConvert<PartiallySettableObject[]>("@{ Name = 'a'; Count = 1 }, @{ Name = 'b'; Count = 2 }");
+            Assert.Equal("a", obj[0].Name);
+            Assert.Equal(1, obj[0].Count);
+            Assert.Equal("b", obj[1].Name);
+            Assert.Equal(2, obj[1].Count);
+        }
+
+        [Fact]
+        public void TestBool()
+        {
+            var obj = _converter.ParseAndConvert<bool>("$false");
+            Assert.False(obj);
+        }
+
+        [Fact]
+        public void TestNull()
+        {
+            var obj = _converter.ParseAndConvert<object>("$null");
+            Assert.Null(obj);
+        }
+
+        [Fact]
+        public void TestTypedNull()
+        {
+            var obj = _converter.ParseAndConvert<SimpleFieldObject>("$null");
+            Assert.Null(obj);
+        }
+
+        [Fact]
+        public void TestNullableValue()
+        {
+            var obj = _converter.ParseAndConvert<int?>("4");
+            Assert.Equal(4, obj);
+        }
+
+        [Fact]
+        public void TestNullableValue_Null()
+        {
+            var obj = _converter.ParseAndConvert<int?>("$null");
+            Assert.Equal(null, obj);
+        }
+
+        [Fact]
+        public void TestNonNullableValue()
+        {
+            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<int>("$null"));
+        }
+
+        [Fact]
+        public void TestConversionToObject_Bool()
+        {
+            var obj = _converter.ParseAndConvert<object>("$true");
+            Assert.Equal(true, obj);
+        }
+
+        [Fact]
+        public void TestConversionToObject_Array()
+        {
+            var obj = _converter.ParseAndConvert<object>("1, $true, 'x'");
+            Assert.Equal(new object[] { 1, true, "x" }, (object[])obj);
+        }
+        
+        [Fact]
+        public void TestConversionToObject_Hashtable()
+        {
+            var obj = _converter.ParseAndConvert<object>("@{ 1 = 'a',5; 'b' = @{ t = $false } }");
+
+            Assert.IsType<Hashtable>(obj);
+
+            var hashtable = (Hashtable)obj;
+
+            Assert.Equal(new object[] { "a", 5 }, hashtable[1]);
+            Assert.IsType<Hashtable>(hashtable["b"]);
+
+            var subtable = (Hashtable)hashtable["b"];
+
+            Assert.Equal(false, subtable["t"]);
         }
     }
 

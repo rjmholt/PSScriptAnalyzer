@@ -133,7 +133,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         /// </summary>
         /// <param name="hashtableAst">The PowerShell representation of the hashtable value.</param>
         /// <returns>The Hashtable as a hydrated .NET value.</returns>
-        public IReadOnlyDictionary<string, object> ConvertAstValue(HashtableAst hashtableAst)
+        public Hashtable ConvertAstValue(HashtableAst hashtableAst)
         {
             if (hashtableAst == null)
             {
@@ -146,19 +146,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             }
 
             // Enforce string keys, since that's always what we want
-            var hashtable = new Dictionary<string, object>();
+            var hashtable = new Hashtable();
             foreach (Tuple<ExpressionAst, StatementAst> entry in hashtableAst.KeyValuePairs)
             {
-                string key;
-                switch (entry.Item1)
-                {
-                    case StringConstantExpressionAst stringConstantExpression:
-                        key = stringConstantExpression.Value;
-                        break;
-
-                    default:
-                        throw CreateInvalidDataExceptionFromAst(entry.Item1);
-                }
+                object key = ConvertAstValue(entry.Item1);
 
                 // Get the value
                 ExpressionAst valueExprAst = (entry.Item2 as PipelineAst)?.GetPureExpression();
