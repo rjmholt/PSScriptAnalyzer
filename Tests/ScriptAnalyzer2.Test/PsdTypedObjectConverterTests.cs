@@ -144,6 +144,28 @@ namespace ScriptAnalyzer2.Test
         {
             Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<JsonObject2>("@{ Count = 2; Sign = 'Libra'; ShortName = 'F'; FullName = 'Farquad' }"));
         }
+
+        [Fact]
+        public void TestCompositeObject()
+        {
+            var obj = _converter.ParseAndConvert<CompositeObject>("@{ Name = 'Thing'; Simple = @{ Field = 'Moo' }; SubObject = @{ Count = 3; FullName = 'X' } }");
+
+            Assert.Equal("Thing", obj.Name);
+            Assert.Equal("Moo", obj.Simple.Field);
+            Assert.Equal(3, obj.SubObject.Count);
+            Assert.Equal("X", obj.SubObject.Name);
+        }
+
+        [Fact]
+        public void TestReadOnlyCompositeObject()
+        {
+            var obj = _converter.ParseAndConvert<InjectedCompositeObject>("@{ Name = 'Thing'; Simple = @{ Field = 'Moo' }; SubObject = @{ Count = 3; FullName = 'X' } }");
+
+            Assert.Equal("Thing", obj.Name);
+            Assert.Equal("Moo", obj.Simple.Field);
+            Assert.Equal(3, obj.SubObject.Count);
+            Assert.Equal("X", obj.SubObject.Name);
+        }
     }
 
     public class SimpleFieldObject
@@ -270,5 +292,32 @@ namespace ScriptAnalyzer2.Test
 
         [JsonIgnore]
         public string Sign { get; set; }
+    }
+
+    public class CompositeObject
+    {
+        public string Name { get; set; }
+
+        public SimpleFieldObject Simple { get; set; }
+
+        public JsonObject SubObject { get; set; }
+    }
+
+
+    public class InjectedCompositeObject
+    {
+        [JsonConstructor]
+        public InjectedCompositeObject(string name, SimpleFieldObject simple, JsonObject subObject)
+        {
+            Name = name;
+            Simple = simple;
+            SubObject = subObject;
+        }
+
+        public string Name { get; }
+
+        public SimpleFieldObject Simple { get; }
+
+        public JsonObject SubObject { get; }
     }
 }
