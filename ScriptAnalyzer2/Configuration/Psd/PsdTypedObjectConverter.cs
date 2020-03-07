@@ -2,7 +2,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
 using System.Management.Automation.Language;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -33,20 +32,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
     public class PsdTypedObjectConverter
     {
-        private static readonly IReadOnlyList<Type> s_dictionaryTypes = new[]
-        {
-            typeof(IDictionary<,>),
-            typeof(Dictionary<,>),
-            typeof(IReadOnlyDictionary<,>),
-        };
-
-        private static readonly IReadOnlyList<Type> s_enumerableTypes = new[]
-        {
-            typeof(IEnumerable<>),
-            typeof(IList<>),
-            typeof(List<>),
-        };
-
         private readonly PsdDataParser _psdDataParser;
 
         private readonly IReadOnlyList<PsdTypeConverter> _converters;
