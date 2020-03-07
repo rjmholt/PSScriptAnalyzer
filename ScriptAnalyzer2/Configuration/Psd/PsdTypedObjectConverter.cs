@@ -8,6 +8,7 @@ using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 {
@@ -155,7 +156,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             return false;
         }
 
-        private IReadOnlyDictionary<string, ExpressionAst> GetHashtableDict(Type target, ExpressionAst ast)
+        private Dictionary<string, ExpressionAst> GetHashtableDict(Type target, ExpressionAst ast)
         {
             if (!(ast is HashtableAst hashtableAst))
             {
@@ -303,7 +304,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         private object InstantiateObject(
             Type target,
             ConstructorInfo ctor,
-            IReadOnlyDictionary<string, ExpressionAst> hashtableDict,
+            Dictionary<string, ExpressionAst> hashtableDict,
             Dictionary<string, SerializedProperty> membersToInstantiate)
         {
             var ctorParameters = new List<object>();
@@ -314,12 +315,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
                     throw new ArgumentException($"The constructor for type '{target.FullName}' requires parameter '{ctorParameter.Name}' but has no such member");
                 }
 
-                membersToInstantiate.Remove(ctorParameter.Name);
-
                 ctorParameters.Add(InstantiateHashtablePropertyAsMember(
                     serializedProperty.MemberInfo,
                     hashtableDict,
                     serializedProperty.Name));
+
+                hashtableDict.Remove(serializedProperty.Name);
             }
 
             return ctor.Invoke(ctorParameters.ToArray());
@@ -327,11 +328,18 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         private void SetObjectProperties(
             object instance,
-            IReadOnlyDictionary<string, ExpressionAst> hashtableDict,
+            Dictionary<string, ExpressionAst> hashtableDict,
             IReadOnlyDictionary<string, SerializedProperty> membersToInstantiate)
         {
             foreach (SerializedProperty memberToInstantiate in membersToInstantiate.Values)
             {
+                if (!hashtableDict.TryGetValue(memberToInstantiate.Name, out ExpressionAst expressionAst))
+                {
+                    continue;
+                }
+
+                hashtableDict.Remove(memberToInstantiate.Name);
+
                 switch (memberToInstantiate.MemberInfo.MemberType)
                 {
                     case MemberTypes.Field:
@@ -342,26 +350,33 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
                             throw new ArgumentException($"Field '{fieldInfo.Name}' on type '{fieldInfo.DeclaringType.FullName}' is readonly and cannot be set");
                         }
 
-                        fieldInfo.SetValue(instance, Convert(fieldInfo.FieldType, hashtableDict[memberToInstantiate.Name]));
+                        fieldInfo.SetValue(instance, Convert(fieldInfo.FieldType, expressionAst));
                         break;
 
                     case MemberTypes.Property:
                         var propertyInfo = (PropertyInfo)memberToInstantiate.MemberInfo;
                         MethodInfo propertySetter = propertyInfo.GetSetMethod() ?? propertyInfo.GetSetMethod(nonPublic: true);
+
                         if (propertySetter == null)
                         {
                             throw new ArgumentException($"Property '{propertyInfo.Name}' on type '{propertyInfo.DeclaringType.FullName}' has no setter and cannot be set");
                         }
-                        propertySetter.Invoke(instance, new[] { Convert(propertyInfo.PropertyType, hashtableDict[memberToInstantiate.Name]) });
+
+                        propertySetter.Invoke(instance, new[] { Convert(propertyInfo.PropertyType, expressionAst) });
                         break;
                 }
+            }
+
+            if (hashtableDict.Count > 0)
+            {
+                throw new ArgumentException($"Unknown key(s) in hashtable: {string.Join(',', hashtableDict.Keys)}");
             }
         }
 
         public object ConvertPoco(Type target, ExpressionAst ast)
         {
             // Validate hashtable and convert to a key value dict
-            IReadOnlyDictionary<string, ExpressionAst> hashtableDict = GetHashtableDict(target, ast);
+            Dictionary<string, ExpressionAst> hashtableDict = GetHashtableDict(target, ast);
 
             // Get the designated constructor
             ConstructorInfo designatedConstructor = GetDesignatedConstructor(target);

@@ -86,10 +86,63 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void DataContractTest()
         {
-            var obj = _converter.ParseAndConvert<DataContractObject>("@{ FirstName = 'Raymond'; MiddleName = 'Luxury'; FamilyName = 'Yacht' }");
+            var obj = _converter.ParseAndConvert<DataContractObject>("@{ FirstName = 'Raymond'; FamilyName = 'Yacht' }");
             Assert.Equal("Raymond", obj.FirstName);
             Assert.Equal("Yacht", obj.LastName);
             Assert.Null(obj.MiddleName);
+        }
+
+        [Fact]
+        public void DataContractThrowsTest()
+        {
+            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<DataContractObject>("@{ FirstName = 'Raymond'; MiddleName = 'Luxury'; FamilyName = 'Yacht' }"));
+        }
+
+        [Fact]
+        public void PartiallySetObjectTest()
+        {
+            var obj = _converter.ParseAndConvert<PartiallySettableObject>("@{ Name = 'Moose'; Count = 4 }");
+            Assert.Equal("Moose", obj.Name);
+            Assert.Equal(4, obj.Count);
+        }
+
+        [Fact]
+        public void PartiallySetObjectDefaultTest()
+        {
+            var obj = _converter.ParseAndConvert<PartiallySettableObject>("@{ Name = 'Moose' }");
+            Assert.Equal("Moose", obj.Name);
+            Assert.Equal(1, obj.Count);
+        }
+
+        [Fact]
+        public void JsonObjectTest()
+        {
+            var obj = _converter.ParseAndConvert<JsonObject>("@{ FullName = 'Moo'; Count = 10 }");
+            Assert.Equal("Moo", obj.Name);
+            Assert.Equal(10, obj.Count);
+        }
+
+
+        [Fact]
+        public void JsonObjectBadMemberTest()
+        {
+            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<JsonObject>("@{ FullName = 'Moo'; ShortName = 'M'; Count = 10 }"));
+        }
+
+        [Fact]
+        public void TestJsonObjectOptOut()
+        {
+            var obj = _converter.ParseAndConvert<JsonObject2>("@{ Count = 2; ShortName = 'F'; FullName = 'Farquad' }");
+            Assert.Equal(2, obj.Count);
+            Assert.Equal("F", obj.ShortName);
+            Assert.Equal("Farquad", obj.Name);
+        }
+
+
+        [Fact]
+        public void TestJsonObjectOptOutThrows()
+        {
+            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<JsonObject2>("@{ Count = 2; Sign = 'Libra'; ShortName = 'F'; FullName = 'Farquad' }"));
         }
     }
 
@@ -123,6 +176,19 @@ namespace ScriptAnalyzer2.Test
         }
 
         public string ReadOnlyProperty { get; }
+    }
+
+    public class PartiallySettableObject
+    {
+        [JsonConstructor]
+        public PartiallySettableObject(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; }
+
+        public int Count { get; set; } = 1;
     }
 
     public class NumericObject
@@ -167,4 +233,42 @@ namespace ScriptAnalyzer2.Test
         public string MiddleName { get; set; }
     }
 
+    [JsonObject(MemberSerialization = MemberSerialization.OptIn)]
+    public class JsonObject
+    {
+        [JsonConstructor]
+        public JsonObject(string name)
+        {
+            Name = name;
+        }
+
+        [JsonProperty]
+        public int Count { get; set; }
+
+        [JsonProperty(PropertyName = "FullName")]
+        public string Name { get; }
+
+        public string ShortName { get; set; }
+    }
+
+    [JsonObject(MemberSerialization = MemberSerialization.OptOut)]
+    public class JsonObject2
+    {
+        [JsonConstructor]
+        public JsonObject2(string name)
+        {
+            Name = name;
+        }
+
+        [JsonProperty]
+        public int Count { get; set; }
+
+        [JsonProperty(PropertyName = "FullName")]
+        public string Name { get; }
+
+        public string ShortName { get; set; }
+
+        [JsonIgnore]
+        public string Sign { get; set; }
+    }
 }
