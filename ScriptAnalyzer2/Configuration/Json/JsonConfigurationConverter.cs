@@ -6,33 +6,26 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
 {
-    internal class JsonConfigurationConverter : JsonConverter<ScriptAnalyzerConfiguration>
+    internal class JsonConfigurationConverter : JsonConverter<JsonScriptAnalyzerConfiguration>
     {
         public override bool CanRead => true;
 
         public override bool CanWrite => false;
 
-        public override ScriptAnalyzerConfiguration ReadJson(
+        public override JsonScriptAnalyzerConfiguration ReadJson(
             JsonReader reader,
             Type objectType,
-            [AllowNull] ScriptAnalyzerConfiguration existingValue,
+            [AllowNull] JsonScriptAnalyzerConfiguration existingValue,
             bool hasExistingValue,
             JsonSerializer serializer)
         {
             JObject configObject = JObject.Load(reader);
-
-            var ruleConfigurations = new Dictionary<string, IRuleConfiguration>();
-            foreach (KeyValuePair<string, JToken> ruleConfig in ((JObject)configObject["Rules"]))
-            {
-                ruleConfigurations[ruleConfig.Key] = new JsonRuleConfiguration((JObject)ruleConfig.Value);
-            }
-
-            return new ScriptAnalyzerConfiguration(
+            return new JsonScriptAnalyzerConfiguration(
                 configObject["RulePaths"].ToObject<string[]>(),
-                ruleConfigurations);
+                (JObject)configObject["Rules"]);
         }
 
-        public override void WriteJson(JsonWriter writer, [AllowNull] ScriptAnalyzerConfiguration value, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, [AllowNull] JsonScriptAnalyzerConfiguration value, JsonSerializer serializer)
         {
             // Not needed - CanWrite is false
             throw new NotImplementedException();

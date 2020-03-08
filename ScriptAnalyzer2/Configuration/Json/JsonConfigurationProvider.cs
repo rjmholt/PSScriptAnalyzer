@@ -12,21 +12,18 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
 {
     public abstract class JsonConfigurationProvider : IConfigurationProvider
     {
-        private readonly Lazy<ScriptAnalyzerConfiguration> _configurationLazy;
-
         protected JsonConfigurationProvider()
         {
-            _configurationLazy = new Lazy<ScriptAnalyzerConfiguration>(GenerateScriptAnalyzerConfiguration);
         }
 
         public IScriptAnalyzerConfiguration GetScriptAnalyzerConfiguration()
         {
-            return _configurationLazy.Value;
+            return GenerateScriptAnalyzerConfiguration();
         }
 
         protected abstract StreamReader GetJsonStream();
 
-        private ScriptAnalyzerConfiguration GenerateScriptAnalyzerConfiguration()
+        private JsonScriptAnalyzerConfiguration GenerateScriptAnalyzerConfiguration()
         {
             var serializer = new JsonSerializer()
             {
@@ -36,7 +33,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
             using (StreamReader streamReader = GetJsonStream())
             using (var jsonReader = new JsonTextReader(streamReader))
             {
-                return serializer.Deserialize<ScriptAnalyzerConfiguration>(jsonReader);
+                return serializer.Deserialize<JsonScriptAnalyzerConfiguration>(jsonReader);
             }
         }
     }

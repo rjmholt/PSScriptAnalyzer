@@ -74,6 +74,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         public object Convert(Type type, ExpressionAst ast)
         {
+            if (type == typeof(ExpressionAst))
+            {
+                return ast;
+            }
+
             if (type == typeof(object))
             {
                 return _psdDataParser.ConvertAstValue(ast);
@@ -437,6 +442,18 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         {
             var hashtableAst = ast as HashtableAst;
 
+            // In case a partial AST is requested
+            if (target == typeof(HashtableAst))
+            {
+                if (hashtableAst == null)
+                {
+                    throw CreateConversionMismatchException(ast, target);
+                }
+
+                result = hashtableAst;
+                return true;
+            }
+
             // If the types are specified as well known ones,
             // just instantiate them now
             if (target == typeof(Hashtable)
@@ -633,7 +650,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
             if (targetBaseGenericType == typeof(IEnumerable<>)
                 || targetBaseGenericType == typeof(List<>)
-                || targetBaseGenericType == typeof(IList<>))
+                || targetBaseGenericType == typeof(IList<>)
+                || targetBaseGenericType == typeof(IReadOnlyList<>)
+                || targetBaseGenericType == typeof(IReadOnlyCollection<>))
             {
                 if (!TryExtractExpressionArray(ast, out IReadOnlyList<ExpressionAst> arrayExpressions))
                 {

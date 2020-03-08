@@ -5,6 +5,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Management.Automation.Language;
+using System.Management.Automation.Runspaces;
 using System.Runtime.Serialization;
 using Xunit;
 
@@ -313,6 +315,49 @@ namespace ScriptAnalyzer2.Test
             var subtable = (Hashtable)hashtable["b"];
 
             Assert.Equal(false, subtable["t"]);
+        }
+
+        [Fact]
+        public void TestPartialInstantiation()
+        {
+            var obj = _converter.ParseAndConvert<HashtableAst>("@{ x = 1; y = 2 }");
+            Assert.Equal(1, ((ConstantExpressionAst)GetExpressionAstFromStatementAst(obj.KeyValuePairs[0].Item2)).Value);
+            Assert.Equal(2, ((ConstantExpressionAst)GetExpressionAstFromStatementAst(obj.KeyValuePairs[1].Item2)).Value);
+        }
+
+        [Fact]
+        public void TestPartialInstantiation_ReadOnlyDict()
+        {
+            var obj = _converter.ParseAndConvert<IReadOnlyDictionary<string, ExpressionAst>>("@{ x = 1; y = 2 }");
+            Assert.Equal(1, ((ConstantExpressionAst)obj["x"]).Value);
+            Assert.Equal(2, ((ConstantExpressionAst)obj["y"]).Value);
+        }
+
+        [Fact]
+        public void TestPartialInstantiation_ReadOnlyHashtableDict()
+        {
+            var obj = _converter.ParseAndConvert<IReadOnlyDictionary<string, HashtableAst>>("@{ x = @{ m = 'hi' }; y = @{ m = 'bye' } }");
+            var x = _converter.Convert<IReadOnlyDictionary<string, string>>(obj["x"]);
+            var y = _converter.Convert<IReadOnlyDictionary<string, string>>(obj["y"]);
+            Assert.Equal("hi", x["m"]);
+            Assert.Equal("bye", y["m"]);
+        }
+
+        [Fact]
+        public void TestPartialInstantiation_IEnumerable()
+        {
+            var obj = _converter.ParseAndConvert<IReadOnlyList<ExpressionAst>>("1, 'hi', $true");
+            var one = _converter.Convert<int>(obj[0]);
+            var two = _converter.Convert<string>(obj[1]);
+            var three = _converter.Convert<bool>(obj[2]);
+            Assert.Equal(1, one);
+            Assert.Equal("hi", two);
+            Assert.Equal(true, three);
+        }
+
+        private ExpressionAst GetExpressionAstFromStatementAst(StatementAst statementAst)
+        {
+            return ((PipelineAst)statementAst).GetPureExpression();
         }
     }
 

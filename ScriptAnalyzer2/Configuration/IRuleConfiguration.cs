@@ -17,7 +17,5 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
     public interface IRuleConfiguration
     {
         CommonConfiguration Common { get; }
-
-        TConfiguration AsConfigurationObject<TConfiguration>() where TConfiguration : IRuleConfiguration;
     }
 }
