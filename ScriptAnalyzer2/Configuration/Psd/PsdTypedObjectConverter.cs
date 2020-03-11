@@ -49,12 +49,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         {
         }
 
-        public TTarget ParseAndConvert<TTarget>(string str)
+        public TTarget Convert<TTarget>(string str)
         {
-            return (TTarget)ParseAndConvert(typeof(TTarget), str);
+            return (TTarget)Convert(typeof(TTarget), str);
         }
 
-        public object ParseAndConvert(Type type, string str)
+        public object Convert(Type type, string str)
         {
             Ast ast = Parser.ParseInput(str, out Token[] _, out ParseError[] parseErrors);
 
