@@ -5,11 +5,10 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public interface IRuleFactory
+    public interface IRuleProvider
     {
-        IEnumerable<IAstRule> GetAstRules();
+        IEnumerable<AstRule> GetAstRules();
 
-        IEnumerable<ITokenRule> GetTokenRules();
+        IEnumerable<TokenRule> GetTokenRules();
     }
-
 }

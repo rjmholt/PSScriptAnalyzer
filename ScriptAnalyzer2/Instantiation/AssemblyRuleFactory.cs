@@ -14,64 +14,29 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
         public static AssemblyRuleFactory FromAssembly(Assembly assembly)
         {
-            return new AssemblyRuleFactory(assembly);
-        }
+            var tokenRules = new Dictionary<string, TokenRuleGenerator>();
+            var astRules = new Dictionary<string, AstRuleGenerator>();
 
-        private readonly Assembly _assembly;
-
-        private AssemblyRuleFactory(Assembly assembly)
-        {
-            _assembly = assembly;
-        }
-
-        public IEnumerable<IAstRule> GetAstRules()
-        {
-            var rules = new List<IAstRule>();
-            foreach (Type type in _assembly.GetTypes())
+            foreach (Type type in assembly.GetExportedTypes())
             {
-                if (typeof(IAstRule).IsAssignableFrom(type))
-                {
-                    try
-                    {
-                        IAstRule rule = (IAstRule)Activator.CreateInstance(type);
-                        rules.Add(rule);
-                    }
-                    catch
-                    {
-                        // continue
-                    }
+                var ruleAttribute = type.GetCustomAttribute<RuleAttribute>();
 
-                    continue;
+                if (typeof(TokenRule).IsAssignableFrom(type))
+                {
                 }
             }
-
-            return rules;
         }
 
-        public IEnumerable<ITokenRule> GetTokenRules()
+        private AssemblyRuleFactory()
         {
-            var rules = new List<ITokenRule>();
-            foreach (Type type in _assembly.GetTypes())
-            {
-                if (typeof(ITokenRule).IsAssignableFrom(type))
-                {
-                    try
-                    {
-                        ITokenRule rule = (ITokenRule)Activator.CreateInstance(type);
-                        rules.Add(rule);
-                    }
-                    catch
-                    {
-                        Console.Error.WriteLine($"Failed to instantiate rule {type.FullName}");
-                        // continue
-                    }
+        }
 
-                    continue;
-                }
-            }
+        public IEnumerable<AstRule> GetAstRules()
+        {
+        }
 
-            return rules;
+        public IEnumerable<TokenRule> GetTokenRules()
+        {
         }
     }
-
 }
