@@ -10,5 +10,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         IEnumerable<AstRule> GetAstRules();
 
         IEnumerable<TokenRule> GetTokenRules();
+
+        void ReturnRule(Rule rule);
     }
 }
