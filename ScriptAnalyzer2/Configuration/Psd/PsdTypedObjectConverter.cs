@@ -200,19 +200,28 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         private ConstructorInfo GetDesignatedConstructor(Type target)
         {
             // Work out if we'll be able to construct this type
-            ConstructorInfo designatedConstructor = null;
-            foreach (ConstructorInfo ctorInfo in target.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                if (ctorInfo.GetParameters().Length == 0)
-                {
-                    designatedConstructor = ctorInfo;
-                    continue;
-                }
+            ConstructorInfo[] constructors = target.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                if (ctorInfo.GetCustomAttribute<JsonConstructorAttribute>() != null)
+            ConstructorInfo designatedConstructor = null;
+            if (constructors.Length == 1)
+            {
+                designatedConstructor = constructors[0];
+            }
+            else
+            {
+                foreach (ConstructorInfo ctorInfo in target.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
                 {
-                    designatedConstructor = ctorInfo;
-                    break;
+                    if (ctorInfo.GetParameters().Length == 0)
+                    {
+                        designatedConstructor = ctorInfo;
+                        continue;
+                    }
+
+                    if (ctorInfo.GetCustomAttribute<JsonConstructorAttribute>() != null)
+                    {
+                        designatedConstructor = ctorInfo;
+                        break;
+                    }
                 }
             }
 

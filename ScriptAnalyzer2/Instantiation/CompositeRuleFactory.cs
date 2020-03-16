@@ -1,6 +1,8 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Management.Automation.Language;
 using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
@@ -9,6 +11,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     {
         private readonly IReadOnlyList<IRuleProvider> _ruleProviders;
 
+        private readonly ConcurrentDictionary<RuleInfo, IRuleProvider> _ruleReturnDictionary;
+
         public CompositeRuleFactory(IReadOnlyList<IRuleProvider> ruleProviders)
         {
             _ruleProviders = ruleProviders;
@@ -16,22 +20,34 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
         public IEnumerable<AstRule> GetAstRules()
         {
-            var rules = new List<AstRule>();
             foreach (IRuleProvider ruleProvider in _ruleProviders)
             {
-                rules.AddRange(ruleProvider.GetAstRules());
+                foreach (AstRule rule in ruleProvider.GetAstRules())
+                {
+                    _ruleReturnDictionary.TryAdd(rule.RuleInfo, ruleProvider);
+                    yield return rule;
+                }
             }
-            return rules;
         }
 
         public IEnumerable<TokenRule> GetTokenRules()
         {
-            var rules = new List<TokenRule>();
             foreach (IRuleProvider ruleProvider in _ruleProviders)
             {
-                rules.AddRange(ruleProvider.GetTokenRules());
+                foreach (TokenRule rule in ruleProvider.GetTokenRules())
+                {
+                    _ruleReturnDictionary.TryAdd(rule.RuleInfo, ruleProvider);
+                    yield return rule;
+                }
             }
-            return rules;
+        }
+
+        public void ReturnRule(Rule rule)
+        {
+            if (_ruleReturnDictionary.TryGetValue(rule.RuleInfo, out IRuleProvider ruleProvider))
+            {
+                ruleProvider.ReturnRule(rule);
+            }
         }
     }
 }

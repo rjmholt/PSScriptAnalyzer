@@ -31,7 +31,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
         public ScriptAnalyzer Build()
         {
-            return new ScriptAnalyzer(new AstAnalyzer());
+            return null;
         }
     }
 }

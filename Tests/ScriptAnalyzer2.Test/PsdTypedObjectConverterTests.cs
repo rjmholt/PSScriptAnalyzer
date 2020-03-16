@@ -24,35 +24,35 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestSimpleFieldObject()
         {
-            var obj = _converter.ParseAndConvert<SimpleFieldObject>("@{ Field = 'Banana' }");
+            var obj = _converter.Convert<SimpleFieldObject>("@{ Field = 'Banana' }");
             Assert.Equal("Banana", obj.Field);
         }
 
         [Fact]
         public void TestSimplePropertyObject()
         {
-            var obj = _converter.ParseAndConvert<SimplePropertyObject>("@{ Property = 'Goose' }");
+            var obj = _converter.Convert<SimplePropertyObject>("@{ Property = 'Goose' }");
             Assert.Equal("Goose", obj.Property);
         }
 
         [Fact]
         public void TestSimpleReadOnlyFieldObject()
         {
-            var obj = _converter.ParseAndConvert<SimpleReadOnlyFieldObject>("@{ ReadOnlyField = 'Goose' }");
+            var obj = _converter.Convert<SimpleReadOnlyFieldObject>("@{ ReadOnlyField = 'Goose' }");
             Assert.Equal("Goose", obj.ReadOnlyField);
         }
 
         [Fact]
         public void TestSimpleReadOnlyPropertyObject()
         {
-            var obj = _converter.ParseAndConvert<SimpleReadOnlyPropertyObject>("@{ ReadOnlyProperty = 'Goose' }");
+            var obj = _converter.Convert<SimpleReadOnlyPropertyObject>("@{ ReadOnlyProperty = 'Goose' }");
             Assert.Equal("Goose", obj.ReadOnlyProperty);
         }
 
         [Fact]
         public void TestNumerics()
         {
-            var obj = _converter.ParseAndConvert<NumericObject>(@"
+            var obj = _converter.Convert<NumericObject>(@"
 @{
     SByte   = 3
     Byte    = 4
@@ -83,14 +83,14 @@ namespace ScriptAnalyzer2.Test
         public void DateTimeTest()
         {
             var expected = new DateTime(ticks: 637191090850000000);
-            var obj = _converter.ParseAndConvert<DateTimeObject>("@{ DateTime = '6/03/2020 4:31:25 PM' }");
+            var obj = _converter.Convert<DateTimeObject>("@{ DateTime = '6/03/2020 4:31:25 PM' }");
             Assert.Equal(expected, obj.DateTime);
         }
 
         [Fact]
         public void DataContractTest()
         {
-            var obj = _converter.ParseAndConvert<DataContractObject>("@{ FirstName = 'Raymond'; FamilyName = 'Yacht' }");
+            var obj = _converter.Convert<DataContractObject>("@{ FirstName = 'Raymond'; FamilyName = 'Yacht' }");
             Assert.Equal("Raymond", obj.FirstName);
             Assert.Equal("Yacht", obj.LastName);
             Assert.Null(obj.MiddleName);
@@ -99,13 +99,13 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void DataContractThrowsTest()
         {
-            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<DataContractObject>("@{ FirstName = 'Raymond'; MiddleName = 'Luxury'; FamilyName = 'Yacht' }"));
+            Assert.Throws<ArgumentException>(() => _converter.Convert<DataContractObject>("@{ FirstName = 'Raymond'; MiddleName = 'Luxury'; FamilyName = 'Yacht' }"));
         }
 
         [Fact]
         public void PartiallySetObjectTest()
         {
-            var obj = _converter.ParseAndConvert<PartiallySettableObject>("@{ Name = 'Moose'; Count = 4 }");
+            var obj = _converter.Convert<PartiallySettableObject>("@{ Name = 'Moose'; Count = 4 }");
             Assert.Equal("Moose", obj.Name);
             Assert.Equal(4, obj.Count);
         }
@@ -113,7 +113,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void PartiallySetObjectDefaultTest()
         {
-            var obj = _converter.ParseAndConvert<PartiallySettableObject>("@{ Name = 'Moose' }");
+            var obj = _converter.Convert<PartiallySettableObject>("@{ Name = 'Moose' }");
             Assert.Equal("Moose", obj.Name);
             Assert.Equal(1, obj.Count);
         }
@@ -121,7 +121,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void JsonObjectTest()
         {
-            var obj = _converter.ParseAndConvert<JsonObject>("@{ FullName = 'Moo'; Count = 10 }");
+            var obj = _converter.Convert<JsonObject>("@{ FullName = 'Moo'; Count = 10 }");
             Assert.Equal("Moo", obj.Name);
             Assert.Equal(10, obj.Count);
         }
@@ -130,13 +130,13 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void JsonObjectBadMemberTest()
         {
-            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<JsonObject>("@{ FullName = 'Moo'; ShortName = 'M'; Count = 10 }"));
+            Assert.Throws<ArgumentException>(() => _converter.Convert<JsonObject>("@{ FullName = 'Moo'; ShortName = 'M'; Count = 10 }"));
         }
 
         [Fact]
         public void TestJsonObjectOptOut()
         {
-            var obj = _converter.ParseAndConvert<JsonObject2>("@{ Count = 2; ShortName = 'F'; FullName = 'Farquad' }");
+            var obj = _converter.Convert<JsonObject2>("@{ Count = 2; ShortName = 'F'; FullName = 'Farquad' }");
             Assert.Equal(2, obj.Count);
             Assert.Equal("F", obj.ShortName);
             Assert.Equal("Farquad", obj.Name);
@@ -146,13 +146,13 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestJsonObjectOptOutThrows()
         {
-            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<JsonObject2>("@{ Count = 2; Sign = 'Libra'; ShortName = 'F'; FullName = 'Farquad' }"));
+            Assert.Throws<ArgumentException>(() => _converter.Convert<JsonObject2>("@{ Count = 2; Sign = 'Libra'; ShortName = 'F'; FullName = 'Farquad' }"));
         }
 
         [Fact]
         public void TestCompositeObject()
         {
-            var obj = _converter.ParseAndConvert<CompositeObject>("@{ Name = 'Thing'; Simple = @{ Field = 'Moo' }; SubObject = @{ Count = 3; FullName = 'X' } }");
+            var obj = _converter.Convert<CompositeObject>("@{ Name = 'Thing'; Simple = @{ Field = 'Moo' }; SubObject = @{ Count = 3; FullName = 'X' } }");
 
             Assert.Equal("Thing", obj.Name);
             Assert.Equal("Moo", obj.Simple.Field);
@@ -163,7 +163,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestReadOnlyCompositeObject()
         {
-            var obj = _converter.ParseAndConvert<InjectedCompositeObject>("@{ Name = 'Thing'; Simple = @{ Field = 'Moo' }; SubObject = @{ Count = 3; FullName = 'X' } }");
+            var obj = _converter.Convert<InjectedCompositeObject>("@{ Name = 'Thing'; Simple = @{ Field = 'Moo' }; SubObject = @{ Count = 3; FullName = 'X' } }");
 
             Assert.Equal("Thing", obj.Name);
             Assert.Equal("Moo", obj.Simple.Field);
@@ -174,7 +174,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestDictionary()
         {
-            var obj = _converter.ParseAndConvert<Dictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
+            var obj = _converter.Convert<Dictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
 
             Assert.Equal("x", obj["1"].Field);
             Assert.Equal("y", obj["2"].Field);
@@ -183,7 +183,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestIDictionary()
         {
-            var obj = _converter.ParseAndConvert<IDictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
+            var obj = _converter.Convert<IDictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
 
             Assert.Equal("x", obj["1"].Field);
             Assert.Equal("y", obj["2"].Field);
@@ -192,7 +192,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestReadOnlyDictionary()
         {
-            var obj = _converter.ParseAndConvert<IReadOnlyDictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
+            var obj = _converter.Convert<IReadOnlyDictionary<string, SimpleFieldObject>>("@{ '1' = @{ Field = 'x' }; '2' = @{ Field = 'y' } }");
 
             Assert.Equal("x", obj["1"].Field);
             Assert.Equal("y", obj["2"].Field);
@@ -201,7 +201,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestHashtable()
         {
-            var obj = _converter.ParseAndConvert<Hashtable>("@{ 1 = @{ X = 'x' }; 'hi there' = 2 }");
+            var obj = _converter.Convert<Hashtable>("@{ 1 = @{ X = 'x' }; 'hi there' = 2 }");
 
             Assert.Equal("x", ((Hashtable)obj[1])["X"]);
             Assert.Equal(2, obj["hi there"]);
@@ -210,35 +210,35 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestArray()
         {
-            var obj = _converter.ParseAndConvert<double[]>("@( 2.1, 3.8, 4.0 )");
+            var obj = _converter.Convert<double[]>("@( 2.1, 3.8, 4.0 )");
             Assert.Equal(new double[] { 2.1, 3.8, 4.0 }, obj);
         }
 
         [Fact]
         public void TestList()
         {
-            var obj = _converter.ParseAndConvert<List<string>>("'hi','THERE','Friend'");
+            var obj = _converter.Convert<List<string>>("'hi','THERE','Friend'");
             Assert.Equal(new List<string> { "hi", "THERE", "Friend" }, obj);
         }
 
         [Fact]
         public void TestGenericIEnumerable()
         {
-            var obj = _converter.ParseAndConvert<IEnumerable<string>>("@('hi','THERE','Friend')");
+            var obj = _converter.Convert<IEnumerable<string>>("@('hi','THERE','Friend')");
             Assert.Equal(new[] { "hi", "THERE", "Friend" }, obj);
         }
 
         [Fact]
         public void TestNonGenericIEnumerable()
         {
-            var obj = _converter.ParseAndConvert<IEnumerable>("'hi', 7, $true");
+            var obj = _converter.Convert<IEnumerable>("'hi', 7, $true");
             Assert.Equal(new object[] { "hi", 7, true }, obj);
         }
 
         [Fact]
         public void TestArrayOfObject()
         {
-            var obj = _converter.ParseAndConvert<PartiallySettableObject[]>("@{ Name = 'a'; Count = 1 }, @{ Name = 'b'; Count = 2 }");
+            var obj = _converter.Convert<PartiallySettableObject[]>("@{ Name = 'a'; Count = 1 }, @{ Name = 'b'; Count = 2 }");
             Assert.Equal("a", obj[0].Name);
             Assert.Equal(1, obj[0].Count);
             Assert.Equal("b", obj[1].Name);
@@ -248,62 +248,62 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestBool()
         {
-            var obj = _converter.ParseAndConvert<bool>("$false");
+            var obj = _converter.Convert<bool>("$false");
             Assert.False(obj);
         }
 
         [Fact]
         public void TestNull()
         {
-            var obj = _converter.ParseAndConvert<object>("$null");
+            var obj = _converter.Convert<object>("$null");
             Assert.Null(obj);
         }
 
         [Fact]
         public void TestTypedNull()
         {
-            var obj = _converter.ParseAndConvert<SimpleFieldObject>("$null");
+            var obj = _converter.Convert<SimpleFieldObject>("$null");
             Assert.Null(obj);
         }
 
         [Fact]
         public void TestNullableValue()
         {
-            var obj = _converter.ParseAndConvert<int?>("4");
+            var obj = _converter.Convert<int?>("4");
             Assert.Equal(4, obj);
         }
 
         [Fact]
         public void TestNullableValue_Null()
         {
-            var obj = _converter.ParseAndConvert<int?>("$null");
-            Assert.Equal(null, obj);
+            var obj = _converter.Convert<int?>("$null");
+            Assert.Null(obj);
         }
 
         [Fact]
         public void TestNonNullableValue()
         {
-            Assert.Throws<ArgumentException>(() => _converter.ParseAndConvert<int>("$null"));
+            Assert.Throws<ArgumentException>(() => _converter.Convert<int>("$null"));
         }
 
         [Fact]
         public void TestConversionToObject_Bool()
         {
-            var obj = _converter.ParseAndConvert<object>("$true");
+            var obj = _converter.Convert<object>("$true");
             Assert.Equal(true, obj);
         }
 
         [Fact]
         public void TestConversionToObject_Array()
         {
-            var obj = _converter.ParseAndConvert<object>("1, $true, 'x'");
+            var obj = _converter.Convert<object>("1, $true, 'x'");
             Assert.Equal(new object[] { 1, true, "x" }, (object[])obj);
         }
         
         [Fact]
         public void TestConversionToObject_Hashtable()
         {
-            var obj = _converter.ParseAndConvert<object>("@{ 1 = 'a',5; 'b' = @{ t = $false } }");
+            var obj = _converter.Convert<object>("@{ 1 = 'a',5; 'b' = @{ t = $false } }");
 
             Assert.IsType<Hashtable>(obj);
 
@@ -320,7 +320,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestPartialInstantiation()
         {
-            var obj = _converter.ParseAndConvert<HashtableAst>("@{ x = 1; y = 2 }");
+            var obj = _converter.Convert<HashtableAst>("@{ x = 1; y = 2 }");
             Assert.Equal(1, ((ConstantExpressionAst)GetExpressionAstFromStatementAst(obj.KeyValuePairs[0].Item2)).Value);
             Assert.Equal(2, ((ConstantExpressionAst)GetExpressionAstFromStatementAst(obj.KeyValuePairs[1].Item2)).Value);
         }
@@ -328,7 +328,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestPartialInstantiation_ReadOnlyDict()
         {
-            var obj = _converter.ParseAndConvert<IReadOnlyDictionary<string, ExpressionAst>>("@{ x = 1; y = 2 }");
+            var obj = _converter.Convert<IReadOnlyDictionary<string, ExpressionAst>>("@{ x = 1; y = 2 }");
             Assert.Equal(1, ((ConstantExpressionAst)obj["x"]).Value);
             Assert.Equal(2, ((ConstantExpressionAst)obj["y"]).Value);
         }
@@ -336,7 +336,7 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestPartialInstantiation_ReadOnlyHashtableDict()
         {
-            var obj = _converter.ParseAndConvert<IReadOnlyDictionary<string, HashtableAst>>("@{ x = @{ m = 'hi' }; y = @{ m = 'bye' } }");
+            var obj = _converter.Convert<IReadOnlyDictionary<string, HashtableAst>>("@{ x = @{ m = 'hi' }; y = @{ m = 'bye' } }");
             var x = _converter.Convert<IReadOnlyDictionary<string, string>>(obj["x"]);
             var y = _converter.Convert<IReadOnlyDictionary<string, string>>(obj["y"]);
             Assert.Equal("hi", x["m"]);
@@ -346,13 +346,13 @@ namespace ScriptAnalyzer2.Test
         [Fact]
         public void TestPartialInstantiation_IEnumerable()
         {
-            var obj = _converter.ParseAndConvert<IReadOnlyList<ExpressionAst>>("1, 'hi', $true");
+            var obj = _converter.Convert<IReadOnlyList<ExpressionAst>>("1, 'hi', $true");
             var one = _converter.Convert<int>(obj[0]);
             var two = _converter.Convert<string>(obj[1]);
             var three = _converter.Convert<bool>(obj[2]);
             Assert.Equal(1, one);
             Assert.Equal("hi", two);
-            Assert.Equal(true, three);
+            Assert.True(three);
         }
 
         private ExpressionAst GetExpressionAstFromStatementAst(StatementAst statementAst)
@@ -373,7 +373,6 @@ namespace ScriptAnalyzer2.Test
 
     public class SimpleReadOnlyFieldObject
     {
-        [JsonConstructor]
         public SimpleReadOnlyFieldObject(string readOnlyField)
         {
             ReadOnlyField = readOnlyField;
@@ -384,7 +383,6 @@ namespace ScriptAnalyzer2.Test
 
     public class SimpleReadOnlyPropertyObject
     {
-        [JsonConstructor]
         public SimpleReadOnlyPropertyObject(string readOnlyProperty)
         {
             ReadOnlyProperty = readOnlyProperty;
@@ -395,7 +393,6 @@ namespace ScriptAnalyzer2.Test
 
     public class PartiallySettableObject
     {
-        [JsonConstructor]
         public PartiallySettableObject(string name)
         {
             Name = name;

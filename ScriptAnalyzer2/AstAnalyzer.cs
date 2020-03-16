@@ -8,9 +8,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 {
     public class AstAnalyzer
     {
-        private readonly IRuleFactory _ruleProvider;
+        private readonly IRuleProvider _ruleProvider;
 
-        internal AstAnalyzer(IRuleFactory ruleProvider)
+        internal AstAnalyzer(IRuleProvider ruleProvider)
         {
             _ruleProvider = ruleProvider;
         }
@@ -22,7 +22,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
         {
             var diagnostics = new List<ScriptDiagnostic>();
 
-            foreach (IAstRule scriptRule in _ruleProvider.GetAstRules())
+            foreach (AstRule scriptRule in _ruleProvider.GetAstRules())
             {
                 try
                 {
@@ -30,11 +30,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine($"Error executing rule {scriptRule.Name}:\n{e}");
+                    Console.Error.WriteLine($"Error executing rule {scriptRule.RuleInfo.Name}:\n{e}");
                 }
             }
 
-            foreach (ITokenRule tokenRule in _ruleProvider.GetTokenRules())
+            foreach (TokenRule tokenRule in _ruleProvider.GetTokenRules())
             {
                 try
                 {
@@ -42,7 +42,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine($"Error executing rule {tokenRule.Name}:\n{e}");
+                    Console.Error.WriteLine($"Error executing rule {tokenRule.RuleInfo.Name}:\n{e}");
                 }
             }
 

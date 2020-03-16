@@ -60,8 +60,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
         public AssemblyRuleFactory CreateAssemblyRuleFactory()
         {
-            var astRuleFactories = new Dictionary<Type, TypeRuleFactory<AstRule>>();
-            var tokenRuleFactories = new Dictionary<Type, TypeRuleFactory<TokenRule>>();
+            var astRuleFactories = new Dictionary<RuleInfo, TypeRuleFactory<AstRule>>();
+            var tokenRuleFactories = new Dictionary<RuleInfo, TypeRuleFactory<TokenRule>>();
 
             Type genericAstRuleBaseType = typeof(AstRule<>);
             Type genericTokenRuleBaseType = typeof(TokenRule<>);
@@ -77,7 +77,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
                 {
                     if (TryGetRuleFactory(genericAstRuleBaseType, ruleInfo, exportedType, _configuration, out TypeRuleFactory<AstRule> factory))
                     {
-                        astRuleFactories[exportedType] = factory;
+                        astRuleFactories[ruleInfo] = factory;
                     }
 
                     continue;
@@ -87,7 +87,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
                 {
                     if (TryGetRuleFactory(genericTokenRuleBaseType, ruleInfo, exportedType, _configuration, out TypeRuleFactory<TokenRule> factory))
                     {
-                        tokenRuleFactories[exportedType] = factory;
+                        tokenRuleFactories[ruleInfo] = factory;
                     }
 
                     continue;
@@ -169,13 +169,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
     public class AssemblyRuleFactory : IRuleProvider
     {
-        private readonly IReadOnlyDictionary<Type, TypeRuleFactory<AstRule>> _astRuleFactories;
+        private readonly IReadOnlyDictionary<RuleInfo, TypeRuleFactory<AstRule>> _astRuleFactories;
 
-        private readonly IReadOnlyDictionary<Type, TypeRuleFactory<TokenRule>> _tokenRuleFactories;
+        private readonly IReadOnlyDictionary<RuleInfo, TypeRuleFactory<TokenRule>> _tokenRuleFactories;
 
         internal AssemblyRuleFactory(
-            IReadOnlyDictionary<Type, TypeRuleFactory<AstRule>> astRuleFactories,
-            IReadOnlyDictionary<Type, TypeRuleFactory<TokenRule>> tokenRuleFactories)
+            IReadOnlyDictionary<RuleInfo, TypeRuleFactory<AstRule>> astRuleFactories,
+            IReadOnlyDictionary<RuleInfo, TypeRuleFactory<TokenRule>> tokenRuleFactories)
         {
             _astRuleFactories = astRuleFactories;
             _tokenRuleFactories = tokenRuleFactories;
@@ -199,13 +199,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
         public void ReturnRule(Rule rule)
         {
-            if (_astRuleFactories.TryGetValue(rule.GetType(), out TypeRuleFactory<AstRule> astRuleFactory))
+            if (_astRuleFactories.TryGetValue(rule.RuleInfo, out TypeRuleFactory<AstRule> astRuleFactory))
             {
                 astRuleFactory.ReturnRuleInstance((AstRule)rule);
                 return;
             }
 
-            if (_tokenRuleFactories.TryGetValue(rule.GetType(), out TypeRuleFactory<TokenRule> tokenRuleFactory))
+            if (_tokenRuleFactories.TryGetValue(rule.RuleInfo, out TypeRuleFactory<TokenRule> tokenRuleFactory))
             {
                 tokenRuleFactory.ReturnRuleInstance((TokenRule)rule);
                 return;
