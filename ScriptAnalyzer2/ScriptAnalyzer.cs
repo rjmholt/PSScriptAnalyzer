@@ -2,7 +2,6 @@
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Management.Automation.Language;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer

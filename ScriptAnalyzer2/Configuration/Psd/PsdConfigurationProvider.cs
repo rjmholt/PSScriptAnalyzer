@@ -15,10 +15,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
         public IScriptAnalyzerConfiguration GetScriptAnalyzerConfiguration()
         {
             var configuration = _psdConverter.Convert<IReadOnlyDictionary<string, ExpressionAst>>(GetConfigurationAst());
-            var ruleNames = _psdConverter.Convert<IReadOnlyList<string>>(configuration["RuleNames"]);
+            var rulePaths = _psdConverter.Convert<IReadOnlyList<string>>(configuration["RulePaths"]);
             var ruleConfigurations = _psdConverter.Convert<IReadOnlyDictionary<string, HashtableAst>>(configuration["Rules"]);
 
-            return new PsdScriptAnalyzerConfiguration(_psdConverter, ruleNames, ruleConfigurations);
+            return new PsdScriptAnalyzerConfiguration(_psdConverter, rulePaths, ruleConfigurations);
         }
 
         protected abstract HashtableAst GetConfigurationAst();

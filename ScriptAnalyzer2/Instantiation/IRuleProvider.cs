@@ -7,6 +7,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
     public interface IRuleProvider
     {
+        IEnumerable<RuleInfo> GetRuleInfos();
+
         IEnumerable<ScriptRule> GetScriptRules();
 
         void ReturnRule(Rule rule);

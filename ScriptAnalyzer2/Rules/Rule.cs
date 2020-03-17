@@ -36,7 +36,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         {
         }
 
-        public abstract IReadOnlyList<ScriptDiagnostic> AnalyzeScript(Ast ast, IReadOnlyList<Token> tokens, string scriptPath);
+        public abstract IEnumerable<ScriptDiagnostic> AnalyzeScript(Ast ast, IReadOnlyList<Token> tokens, string scriptPath);
     }
 
     public abstract class ScriptRule<TConfiguration> : Rule<TConfiguration> where TConfiguration : IRuleConfiguration

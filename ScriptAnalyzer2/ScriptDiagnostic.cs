@@ -7,24 +7,29 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
     public class ScriptDiagnostic
     {
         public ScriptDiagnostic(
+            RuleInfo rule,
             string message,
             IScriptExtent scriptExtent,
             DiagnosticSeverity severity)
-            : this(message, scriptExtent, severity, corrections: null)
+            : this(rule, message, scriptExtent, severity, corrections: null)
         {
         }
 
         public ScriptDiagnostic(
+            RuleInfo rule,
             string message,
             IScriptExtent scriptExtent,
             DiagnosticSeverity severity,
             IReadOnlyList<Correction> corrections)
         {
+            Rule = rule;
             Corrections = corrections;
             Message = message;
             ScriptExtent = scriptExtent;
             Severity = severity;
         }
+
+        public RuleInfo Rule { get; }
 
         public string Message { get; }
 
@@ -37,17 +42,18 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
     public class ScriptAstDiagnostic : ScriptDiagnostic
     {
-        public ScriptAstDiagnostic(string message, Ast ast, DiagnosticSeverity severity)
-            : this(message, ast, severity, corrections: null)
+        public ScriptAstDiagnostic(RuleInfo rule, string message, Ast ast, DiagnosticSeverity severity)
+            : this(rule, message, ast, severity, corrections: null)
         {
         }
 
         public ScriptAstDiagnostic(
+            RuleInfo rule,
             string message,
             Ast ast,
             DiagnosticSeverity severity,
             IReadOnlyList<Correction> corrections)
-            : base(message, ast.Extent, severity, corrections)
+            : base(rule, message, ast.Extent, severity, corrections)
         {
             Ast = ast;
         }
@@ -58,13 +64,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
     public class ScriptTokenDiagnostic : ScriptDiagnostic
     {
-        public ScriptTokenDiagnostic(string message, Token token, DiagnosticSeverity severity)
-            : this(message, token, severity, corrections: null)
+        public ScriptTokenDiagnostic(RuleInfo rule, string message, Token token, DiagnosticSeverity severity)
+            : this(rule, message, token, severity, corrections: null)
         {
         }
 
-        public ScriptTokenDiagnostic(string message, Token token, DiagnosticSeverity severity, IReadOnlyList<Correction> corrections)
-            : base(message, token.Extent, severity, corrections)
+        public ScriptTokenDiagnostic(RuleInfo rule, string message, Token token, DiagnosticSeverity severity, IReadOnlyList<Correction> corrections)
+            : base(rule, message, token.Extent, severity, corrections)
         {
             Token = token;
         }

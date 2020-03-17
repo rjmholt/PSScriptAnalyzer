@@ -7,16 +7,27 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public class CompositeRuleFactory : IRuleProvider
+    public class CompositeRuleProvider : IRuleProvider
     {
         private readonly IReadOnlyList<IRuleProvider> _ruleProviders;
 
         private readonly ConcurrentDictionary<RuleInfo, IRuleProvider> _ruleReturnDictionary;
 
-        public CompositeRuleFactory(IReadOnlyList<IRuleProvider> ruleProviders)
+        public CompositeRuleProvider(IReadOnlyList<IRuleProvider> ruleProviders)
         {
             _ruleReturnDictionary = new ConcurrentDictionary<RuleInfo, IRuleProvider>();
             _ruleProviders = ruleProviders;
+        }
+
+        public IEnumerable<RuleInfo> GetRuleInfos()
+        {
+            foreach (IRuleProvider ruleProvider in _ruleProviders)
+            {
+                foreach (RuleInfo ruleInfo in ruleProvider.GetRuleInfos())
+                {
+                    yield return ruleInfo;
+                }
+            }
         }
 
         public IEnumerable<ScriptRule> GetScriptRules()

@@ -52,14 +52,14 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         {
             Name = name;
             Namespace = @namespace;
-            Fullname = $"{@namespace}/{name}";
+            FullName = $"{@namespace}/{name}";
         }
 
         public string Name { get; }
 
         public string Namespace { get; }
 
-        public string Fullname { get; }
+        public string FullName { get; }
 
         public string Description { get; private set; }
 

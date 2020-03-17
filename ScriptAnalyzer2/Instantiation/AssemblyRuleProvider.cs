@@ -45,6 +45,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
             _scriptRuleFactories = scriptRuleFactories;
         }
 
+        public IEnumerable<RuleInfo> GetRuleInfos()
+        {
+            return _scriptRuleFactories.Keys;
+        }
+
         public IEnumerable<ScriptRule> GetScriptRules()
         {
             foreach (TypeRuleFactory<ScriptRule> ruleFactory in _scriptRuleFactories.Values)
@@ -95,8 +100,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
             }
 
             IRuleConfiguration ruleConfiguration = null;
-            if (configurationType == null)
+            if (configurationType != null)
             {
+                configuration.TryGetRuleConfiguration(configurationType, ruleInfo.FullName, out ruleConfiguration);
             }
 
             if (ruleInfo.IsIdempotent)
