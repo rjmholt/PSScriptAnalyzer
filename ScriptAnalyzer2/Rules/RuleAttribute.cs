@@ -3,8 +3,12 @@ using System.Reflection;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
 {
+    public abstract class ScriptAnalyzerAttribute : Attribute
+    {
+    }
+
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-    public sealed class RuleAttribute : Attribute
+    public sealed class RuleAttribute : ScriptAnalyzerAttribute
     {
         public RuleAttribute(string name)
         {
@@ -16,14 +20,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         public DiagnosticSeverity Severity { get; set; } = DiagnosticSeverity.Warning;
 
         public string Namespace { get; set; }
-
-        public bool IsThreadsafe { get; set; } = false;
-
-        public bool IsIdempotent { get; set; } = false;
     }
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-    public sealed class RuleDescriptionAttribute : Attribute
+    public sealed class RuleDescriptionAttribute : ScriptAnalyzerAttribute
     {
         private readonly Lazy<string> _descriptionLazy;
 
@@ -44,5 +44,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
             PropertyInfo resourceProperty = resourceProvider.GetProperty(resourceKey, BindingFlags.Static | BindingFlags.NonPublic);
             return (string)resourceProperty.GetValue(null);
         }
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public sealed class ThreadsafeRuleAttribute : ScriptAnalyzerAttribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public sealed class IdempotentRuleAttribute : ScriptAnalyzerAttribute
+    {
     }
 }

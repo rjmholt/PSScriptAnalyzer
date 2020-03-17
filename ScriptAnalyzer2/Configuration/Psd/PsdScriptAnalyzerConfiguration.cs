@@ -26,9 +26,33 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         public IReadOnlyList<string> RulePaths { get; }
 
-        public TRuleConfiguration GetRuleConfiguration<TRuleConfiguration>(string ruleName) where TRuleConfiguration : IRuleConfiguration
+        public bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration)
         {
-            return (TRuleConfiguration)_ruleConfigurationCache.GetOrAdd(ruleName, (ruleName) => _psdConverter.Convert<TRuleConfiguration>(_ruleConfigurations[ruleName]));
+            try
+            {
+                configuration = _ruleConfigurationCache.GetOrAdd(ruleName, (ruleName) => GetConfigurationForRule(ruleName, configurationType));
+                return true;
+            }
+            catch (ConfigurationNotFoundException)
+            {
+                configuration = default;
+                return false;
+            }
+        }
+
+        private IRuleConfiguration GetConfigurationForRule(string ruleName, Type ruleConfigurationType)
+        {
+            if (!_ruleConfigurations.TryGetValue(ruleName, out HashtableAst configurationAst))
+            {
+                throw new ConfigurationNotFoundException();
+            }
+
+            if (ruleConfigurationType == typeof(IRuleConfiguration))
+            {
+                return (IRuleConfiguration)_psdConverter.Convert(typeof(RuleConfiguration), configurationAst);
+            }
+
+            return (IRuleConfiguration)_psdConverter.Convert(ruleConfigurationType, configurationAst);
         }
     }
 }

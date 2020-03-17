@@ -8,6 +8,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
     {
         IReadOnlyList<string> RulePaths { get; }
 
-        TRuleConfiguration GetRuleConfiguration<TRuleConfiguration>(string ruleName) where TRuleConfiguration : IRuleConfiguration;
+        bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration);
     }
 }

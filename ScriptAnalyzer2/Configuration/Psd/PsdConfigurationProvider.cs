@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Management.Automation.Language;
-using System.Management.Automation.Runspaces;
-using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 {
@@ -38,8 +35,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         protected override HashtableAst GetConfigurationAst()
         {
-            Ast ast = Parser.ParseFile(_psdFilePath, out Token[] _, out ParseError[] parseErrors);
-            return (HashtableAst)((CommandExpressionAst)((PipelineAst)((ScriptBlockAst)ast).EndBlock.Statements[0]).PipelineElements[0]).Expression;
+            return PowerShellParsing.ParseHashtableFromFile(_psdFilePath);
         }
     }
 
@@ -54,8 +50,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         protected override HashtableAst GetConfigurationAst()
         {
-            Ast ast = Parser.ParseInput(_psdContent, out Token[] _, out ParseError[] parseErrors);
-            return (HashtableAst)((CommandExpressionAst)((PipelineAst)((ScriptBlockAst)ast).EndBlock.Statements[0]).PipelineElements[0]).Expression;
+            return PowerShellParsing.ParseHashtableFromInput(_psdContent);
         }
     }
 }

@@ -18,4 +18,14 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
     {
         CommonConfiguration Common { get; }
     }
+
+    public class RuleConfiguration : IRuleConfiguration
+    {
+        public RuleConfiguration(CommonConfiguration common)
+        {
+            Common = common;
+        }
+
+        public CommonConfiguration Common { get; }
+    }
 }

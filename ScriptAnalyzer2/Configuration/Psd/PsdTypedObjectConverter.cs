@@ -56,14 +56,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         public object Convert(Type type, string str)
         {
-            Ast ast = Parser.ParseInput(str, out Token[] _, out ParseError[] parseErrors);
-
-            if (parseErrors != null && parseErrors.Length > 0)
-            {
-                throw new ArgumentException($"Invalid PowerShell expression syntax");
-            }
-
-            var expressionAst = ((CommandExpressionAst)((PipelineAst)((ScriptBlockAst)ast).EndBlock.Statements[0]).PipelineElements[0]).Expression;
+            ExpressionAst expressionAst = PowerShellParsing.ParseExpressionFromInput(str);
             return Convert(type, expressionAst);
         }
 
@@ -406,7 +399,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             }
         }
 
-        public object ConvertPoco(Type target, ExpressionAst ast)
+        private object ConvertPoco(Type target, ExpressionAst ast)
         {
             // Validate hashtable and convert to a key value dict
             Dictionary<string, ExpressionAst> hashtableDict = GetHashtableDict(target, ast);

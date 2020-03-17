@@ -19,18 +19,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         public RuleInfo RuleInfo { get; }
     }
 
-    public abstract class AstRule : Rule
+    public abstract class Rule<TConfiguration> : Rule where TConfiguration : IRuleConfiguration
     {
-        protected AstRule(RuleInfo ruleInfo) : base(ruleInfo)
-        {
-        }
-
-        public abstract IReadOnlyList<ScriptDiagnostic> AnalyzeScript(Ast ast, string scriptPath);
-    }
-
-    public abstract class AstRule<TConfiguration> : AstRule where TConfiguration : IRuleConfiguration
-    {
-        protected AstRule(RuleInfo ruleInfo, TConfiguration ruleConfiguration)
+        protected Rule(RuleInfo ruleInfo, TConfiguration ruleConfiguration)
             : base(ruleInfo)
         {
             Configuration = ruleConfiguration;
@@ -39,22 +30,21 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
         public TConfiguration Configuration { get; }
     }
 
-    public abstract class TokenRule : Rule
+    public abstract class ScriptRule : Rule
     {
-        protected TokenRule(RuleInfo ruleInfo) : base(ruleInfo)
+        protected ScriptRule(RuleInfo ruleInfo) : base(ruleInfo)
         {
         }
 
-        public abstract IReadOnlyList<ScriptDiagnostic> AnalyzeScript(IReadOnlyList<Token> tokens, string scriptPath);
+        public abstract IReadOnlyList<ScriptDiagnostic> AnalyzeScript(Ast ast, IReadOnlyList<Token> tokens, string scriptPath);
     }
 
-    public abstract class TokenRule<TConfiguration> : TokenRule where TConfiguration : IRuleConfiguration
+    public abstract class ScriptRule<TConfiguration> : Rule<TConfiguration> where TConfiguration : IRuleConfiguration
     {
-        protected TokenRule(RuleInfo ruleInfo, TConfiguration ruleConfiguration) : base(ruleInfo)
+        protected ScriptRule(RuleInfo ruleInfo, TConfiguration ruleConfiguration) : base(ruleInfo, ruleConfiguration)
         {
-            Configuration = ruleConfiguration;
         }
 
-        public TConfiguration Configuration { get; }
+        public abstract IReadOnlyList<ScriptDiagnostic> AnalyzeScript(Ast ast, IReadOnlyList<Token> tokens, string scriptPath);
     }
 }

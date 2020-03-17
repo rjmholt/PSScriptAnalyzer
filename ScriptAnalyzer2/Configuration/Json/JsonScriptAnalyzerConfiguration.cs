@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
@@ -19,9 +20,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
 
         public IReadOnlyList<string> RulePaths { get; }
 
-        public TRuleConfiguration GetRuleConfiguration<TRuleConfiguration>(string ruleName) where TRuleConfiguration : IRuleConfiguration
+        public bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration)
         {
-            return (TRuleConfiguration)_ruleConfigurationCache.GetOrAdd(ruleName, (ruleName) => _ruleConfigurations[ruleName].ToObject<TRuleConfiguration>());
+            configuration = _ruleConfigurationCache.GetOrAdd(ruleName, (ruleName) => (IRuleConfiguration)_ruleConfigurations[ruleName].ToObject(configurationType));
+            return true;
         }
     }
 }

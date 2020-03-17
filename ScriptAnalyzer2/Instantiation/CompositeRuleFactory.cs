@@ -15,26 +15,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
         public CompositeRuleFactory(IReadOnlyList<IRuleProvider> ruleProviders)
         {
+            _ruleReturnDictionary = new ConcurrentDictionary<RuleInfo, IRuleProvider>();
             _ruleProviders = ruleProviders;
         }
 
-        public IEnumerable<AstRule> GetAstRules()
+        public IEnumerable<ScriptRule> GetScriptRules()
         {
             foreach (IRuleProvider ruleProvider in _ruleProviders)
             {
-                foreach (AstRule rule in ruleProvider.GetAstRules())
-                {
-                    _ruleReturnDictionary.TryAdd(rule.RuleInfo, ruleProvider);
-                    yield return rule;
-                }
-            }
-        }
-
-        public IEnumerable<TokenRule> GetTokenRules()
-        {
-            foreach (IRuleProvider ruleProvider in _ruleProviders)
-            {
-                foreach (TokenRule rule in ruleProvider.GetTokenRules())
+                foreach (ScriptRule rule in ruleProvider.GetScriptRules())
                 {
                     _ruleReturnDictionary.TryAdd(rule.RuleInfo, ruleProvider);
                     yield return rule;
