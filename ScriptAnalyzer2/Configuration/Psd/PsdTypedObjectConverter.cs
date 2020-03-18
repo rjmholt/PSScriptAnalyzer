@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Tools;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;

@@ -15,7 +15,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules
     [ThreadsafeRule]
     [IdempotentRule]
     [RuleDescription(typeof(Strings), nameof(Strings.AvoidUsingWMICmdletDescription))]
-    [Rule("AvoidUsingWMICmdlet", Severity = DiagnosticSeverity.Warning)]
+    [Rule("AvoidUsingWMICmdlet")]
     public class AvoidUsingWMICmdlet : ScriptRule
     {
         public AvoidUsingWMICmdlet(RuleInfo ruleInfo)
@@ -50,19 +50,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules
                     {
                         if (String.IsNullOrWhiteSpace(fileName))
                         {
-                            yield return new ScriptDiagnostic(
-                                RuleInfo,
+                            yield return CreateDiagnostic(
                                 String.Format(CultureInfo.CurrentCulture, Strings.AvoidUsingWMICmdletErrorScriptDefinition),
-                                cmdAst.Extent,
-                                DiagnosticSeverity.Warning);
+                                cmdAst.Extent);
                         }
                         else
                         {
-                            yield return new ScriptDiagnostic(
-                                RuleInfo,
+                            yield return CreateDiagnostic(
                                 String.Format(CultureInfo.CurrentCulture, Strings.AvoidUsingWMICmdletError, System.IO.Path.GetFileName(fileName)),
-                                cmdAst.Extent,
-                                DiagnosticSeverity.Warning);
+                                cmdAst.Extent);
                         }
                     }
                 }

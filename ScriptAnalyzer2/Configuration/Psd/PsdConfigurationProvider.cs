@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Tools;
+using System.Collections.Generic;
 using System.Management.Automation.Language;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
