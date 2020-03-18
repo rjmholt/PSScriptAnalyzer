@@ -8,7 +8,7 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 {
-    [Cmdlet(VerbsCommon.Get, "ScriptAnalyzerRule")]
+    [Cmdlet(VerbsCommon.Get, "ScriptAnalyzer2Rule")]
     public class GetScriptAnalyzerRuleCommand : Cmdlet
     {
         [ValidateNotNullOrEmpty]

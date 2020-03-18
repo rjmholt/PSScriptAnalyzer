@@ -9,7 +9,7 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 {
-    [Cmdlet(VerbsLifecycle.Invoke, "ScriptAnalyzer")]
+    [Cmdlet(VerbsLifecycle.Invoke, "ScriptAnalyzer2")]
     public class InvokeScriptAnalyzerCommand : Cmdlet
     {
         private static ConcurrentDictionary<string, ScriptAnalyzer> _configuredScriptAnalyzers = new ConcurrentDictionary<string, ScriptAnalyzer>();
@@ -20,7 +20,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
         [ValidateNotNullOrEmpty]
         [Parameter(Position = 0, Mandatory = true, ParameterSetName = "Input")]
-        public string[] Input { get; set; }
+        public string[] ScriptDefinition { get; set; }
 
         [Parameter]
         public string ConfigurationPath { get; set; }
@@ -47,9 +47,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
                 return;
             }
 
-            if (Input != null)
+            if (ScriptDefinition != null)
             {
-                foreach (string input in Input)
+                foreach (string input in ScriptDefinition)
                 {
                     foreach (ScriptDiagnostic diagnostic in _scriptAnalyzer.AnalyzeScriptInput(input))
                     {
