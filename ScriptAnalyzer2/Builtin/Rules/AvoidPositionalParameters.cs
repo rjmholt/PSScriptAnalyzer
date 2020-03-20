@@ -48,7 +48,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules
                 // You can also review the remark section in following document,
                 // MSDN: CommandAst.GetCommandName Method
                 if (cmdAst.GetCommandName() == null) continue;
+
+                throw new NotImplementedException();
                 
+                /*
                 if ((Helper.Instance.IsKnownCmdletFunctionOrExternalScript(cmdAst) || declaredFunctionNames.Contains(cmdAst.GetCommandName())) &&
                     (Helper.Instance.PositionalParameterUsed(cmdAst, true)))
                 {
@@ -70,7 +73,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules
                             cmdAst.Extent, GetName(), DiagnosticSeverity.Information, fileName, cmdAst.GetCommandName());
                     }
                 }
+                */
             }
+
+            yield break;
         }
     }
 }
