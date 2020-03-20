@@ -3,6 +3,7 @@ using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json;
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
+using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
 using System;
 using System.Collections.Generic;
 using System.IO;

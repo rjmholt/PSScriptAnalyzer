@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
