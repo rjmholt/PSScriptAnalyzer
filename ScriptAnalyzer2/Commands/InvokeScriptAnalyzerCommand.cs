@@ -71,7 +71,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
                 builder.AddBuiltinRules();
 
-                return new ScriptAnalyzer(builder.Build());
+                throw new NotImplementedException();
             });
         }
     }

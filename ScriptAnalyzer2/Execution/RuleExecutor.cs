@@ -6,11 +6,40 @@ using System.Threading.Tasks.Dataflow;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer
 {
-    internal interface IRuleExecutor
+    public interface IRuleExecutor
     {
         void AddRule(ScriptRule rule);
 
         IReadOnlyCollection<ScriptDiagnostic> CollectDiagnostics();
+    }
+
+    internal class SequentialRuleExecutor : IRuleExecutor
+    {
+        private readonly Ast _scriptAst;
+
+        private readonly IReadOnlyList<Token> _scriptTokens;
+
+        private readonly string _scriptPath;
+
+        private readonly List<ScriptDiagnostic> _diagnostics;
+
+        public SequentialRuleExecutor(Ast ast, IReadOnlyList<Token> tokens, string scriptPath)
+        {
+            _scriptAst = ast;
+            _scriptTokens = tokens;
+            _scriptPath = scriptPath;
+            _diagnostics = new List<ScriptDiagnostic>();
+        }
+
+        public void AddRule(ScriptRule rule)
+        {
+            _diagnostics.AddRange(rule.AnalyzeScript(_scriptAst, _scriptTokens, _scriptPath));
+        }
+
+        public IReadOnlyCollection<ScriptDiagnostic> CollectDiagnostics()
+        {
+            return _diagnostics;
+        }
     }
 
     internal class ParallelLinqRuleExecutor : IRuleExecutor

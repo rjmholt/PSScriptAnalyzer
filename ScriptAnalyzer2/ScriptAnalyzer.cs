@@ -1,7 +1,7 @@
-﻿using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
+using Microsoft.PowerShell.ScriptAnalyzer.Execution;
+using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
-using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Management.Automation.Language;
 
@@ -11,9 +11,14 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
     {
         private readonly IRuleProvider _ruleProvider;
 
-        public ScriptAnalyzer(IRuleProvider ruleProvider)
+        private readonly IRuleExecutorFactory _executorFactory;
+
+        public ScriptAnalyzer(
+            IRuleProvider ruleProvider,
+            IRuleExecutorFactory executorFactory)
         {
             _ruleProvider = ruleProvider;
+            _executorFactory = executorFactory;
         }
 
         public IReadOnlyCollection<ScriptDiagnostic> AnalyzeScriptPath(string path)
@@ -33,7 +38,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
         public IReadOnlyCollection<ScriptDiagnostic> AnalyzeScript(Ast scriptAst, Token[] scriptTokens, string scriptPath)
         {
-            var ruleExecutor = new ParallelLinqRuleExecutor(scriptAst, scriptTokens, scriptPath);
+            IRuleExecutor ruleExecutor = _executorFactory.CreateRuleExecutor();
 
             foreach (ScriptRule rule in _ruleProvider.GetScriptRules())
             {

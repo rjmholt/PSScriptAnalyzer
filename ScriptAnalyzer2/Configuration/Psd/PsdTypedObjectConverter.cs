@@ -39,11 +39,14 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         private readonly Dictionary<Type, PsdTypeConverter> _converterCache;
 
+        private readonly Dictionary<Type, Dictionary<string, object>> _enumMembers;
+
         public PsdTypedObjectConverter(IReadOnlyList<PsdTypeConverter> converters)
         {
             _converters = converters;
             _psdDataParser = new PsdDataParser();
             _converterCache = new Dictionary<Type, PsdTypeConverter>();
+            _enumMembers = new Dictionary<Type, Dictionary<string, object>>();
         }
 
         public PsdTypedObjectConverter() : this(converters: null)
@@ -81,6 +84,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             object conversionResult;
 
             if (TryCustomConversion(type, ast, out conversionResult))
+            {
+                return conversionResult;
+            }
+
+            if (TryEnumConversion(type, ast, out conversionResult))
             {
                 return conversionResult;
             }
@@ -128,6 +136,49 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             }
 
             return ConvertPoco(type, ast);
+        }
+
+        private bool TryEnumConversion(Type target, ExpressionAst ast, out object result)
+        {
+            if (!target.IsEnum)
+            {
+                result = null;
+                return false;
+            }
+
+            string str = ConvertString(ast);
+
+            if (!_enumMembers.TryGetValue(target, out Dictionary<string, object> enumValues))
+            {
+                enumValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (FieldInfo enumMember in target.GetFields(BindingFlags.Public | BindingFlags.Static))
+                {
+                    var enumMemberAttribute = enumMember.GetCustomAttribute<EnumMemberAttribute>();
+                    if (enumMemberAttribute != null)
+                    {
+                        enumValues[enumMemberAttribute.Value ?? enumMember.Name] = enumMember.GetValue(null);
+                    }
+                }
+
+                // If no members have the [EnumMember] attribute, we include all of them
+                if (enumValues.Count == 0)
+                {
+                    foreach (FieldInfo enumMember in target.GetFields(BindingFlags.Public | BindingFlags.Static))
+                    {
+                        enumValues[enumMember.Name] = enumMember.GetValue(null);
+                    }
+                }
+
+                _enumMembers[target] = enumValues;
+            }
+
+            if (!enumValues.TryGetValue(str, out result))
+            {
+                throw new ArgumentException($"Enum type '{target.FullName}' does not define a member '{str}'");
+            }
+
+            return true;
         }
 
         private bool TryConvertNullable(Type target, ExpressionAst ast, out object result)

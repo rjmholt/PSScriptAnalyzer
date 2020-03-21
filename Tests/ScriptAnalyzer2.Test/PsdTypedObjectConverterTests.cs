@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Runtime.Serialization;
@@ -355,10 +354,49 @@ namespace ScriptAnalyzer2.Test
             Assert.True(three);
         }
 
+        [Fact]
+        public void TestEnum_Undecorated()
+        {
+            var one = _converter.Convert<UndecoratedEnum>("'one'");
+            var twoThree = _converter.Convert<UndecoratedEnum[]>("'two','three'");
+
+            Assert.Equal(UndecoratedEnum.One, one);
+            Assert.Equal(new[] { UndecoratedEnum.Two, UndecoratedEnum.Three }, twoThree);
+        }
+
+        [Fact]
+        public void TestEnum_WithEnumMember()
+        {
+            var goose = _converter.Convert<DecoratedEnum>("'goose'");
+            var dog = _converter.Convert<DecoratedEnum>("'dog'");
+
+            Assert.Equal(DecoratedEnum.Duck, goose);
+            Assert.Equal(DecoratedEnum.Dog, dog);
+            Assert.Throws<ArgumentException>(() => _converter.Convert<DecoratedEnum>("'missing'"));
+        }
+
         private ExpressionAst GetExpressionAstFromStatementAst(StatementAst statementAst)
         {
             return ((PipelineAst)statementAst).GetPureExpression();
         }
+    }
+
+    public enum UndecoratedEnum
+    {
+        One,
+        Two,
+        Three
+    }
+
+    public enum DecoratedEnum
+    {
+        [EnumMember(Value = "goose")]
+        Duck,
+
+        Missing,
+
+        [EnumMember]
+        Dog,
     }
 
     public class SimpleFieldObject

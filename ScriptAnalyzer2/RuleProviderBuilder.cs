@@ -49,7 +49,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
         public RuleProviderBuilder AddRuleAssembly(Assembly assembly)
         {
-            return AddRuleProvider(AssemblyRuleProvider.FromAssembly(assembly, _configuration));
+            return AddRuleProvider(TypeRuleProvider.FromAssembly(assembly, _configuration));
         }
 
         public RuleProviderBuilder AddBuiltinRules()
@@ -67,7 +67,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
                     if (string.Equals(ruleExt, ".dll", StringComparison.OrdinalIgnoreCase))
                     {
-                        _ruleProviders.Add(AssemblyRuleProvider.FromAssembly(Assembly.LoadFile(rulePath), _configuration));
+                        _ruleProviders.Add(TypeRuleProvider.FromAssembly(Assembly.LoadFile(rulePath), _configuration));
                     }
                 }
             }

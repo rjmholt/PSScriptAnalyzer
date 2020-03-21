@@ -1,74 +1,18 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
-using Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using System;
-using System.Collections.Generic;
-using System.Management.Automation.Language;
 using System.Reflection;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public class AssemblyRuleProvider : IRuleProvider
+    internal static class RuleGeneration
     {
-        public static AssemblyRuleProvider FromAssembly(
-            Assembly ruleAssembly,
-            IScriptAnalyzerConfiguration configuration)
+        public static bool TryGetRuleFromType(IScriptAnalyzerConfiguration configuration, Type type, out RuleInfo ruleInfo, out TypeRuleFactory<ScriptRule> ruleFactory)
         {
-            var ruleFactories = new Dictionary<RuleInfo, TypeRuleFactory<ScriptRule>>();
-
-            foreach (Type exportedType in ruleAssembly.GetExportedTypes())
-            {
-                if (!RuleInfo.TryGetFromRuleType(exportedType, out RuleInfo ruleInfo))
-                {
-                    continue;
-                }
-
-                if (typeof(ScriptRule).IsAssignableFrom(exportedType))
-                {
-                    if (TryGetRuleFactory(ruleInfo, exportedType, configuration, out TypeRuleFactory<ScriptRule> factory))
-                    {
-                        ruleFactories[ruleInfo] = factory;
-                    }
-
-                    continue;
-                }
-            }
-
-            return new AssemblyRuleProvider(ruleFactories);
-        }
-
-        private readonly IReadOnlyDictionary<RuleInfo, TypeRuleFactory<ScriptRule>> _scriptRuleFactories;
-
-        internal AssemblyRuleProvider(
-            IReadOnlyDictionary<RuleInfo, TypeRuleFactory<ScriptRule>> scriptRuleFactories)
-        {
-            _scriptRuleFactories = scriptRuleFactories;
-        }
-
-        public IEnumerable<RuleInfo> GetRuleInfos()
-        {
-            return _scriptRuleFactories.Keys;
-        }
-
-        public IEnumerable<ScriptRule> GetScriptRules()
-        {
-            foreach (TypeRuleFactory<ScriptRule> ruleFactory in _scriptRuleFactories.Values)
-            {
-                yield return ruleFactory.GetRuleInstance();
-            }
-        }
-
-        public void ReturnRule(Rule rule)
-        {
-            if (!(rule is ScriptRule scriptRule))
-            {
-                return;
-            }
-
-            if (_scriptRuleFactories.TryGetValue(rule.RuleInfo, out TypeRuleFactory<ScriptRule> astRuleFactory))
-            {
-                astRuleFactory.ReturnRuleInstance(scriptRule);
-            }
+            ruleFactory = null;
+            return RuleInfo.TryGetFromRuleType(type, out ruleInfo)
+                && typeof(ScriptRule).IsAssignableFrom(type)
+                && TryGetRuleFactory(ruleInfo, type, configuration, out ruleFactory);
         }
 
         private static bool TryGetRuleFactory<TRuleBase>(

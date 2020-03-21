@@ -24,12 +24,16 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.InMemory
         private readonly IReadOnlyDictionary<string, IRuleConfiguration> _ruleConfigurations;
 
         public DictionaryScriptAnalyzerConfiguration(
+            RuleExecutionMode ruleExecutionMode,
             IReadOnlyList<string> rulePaths,
             IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurations)
         {
             _ruleConfigurations = ruleConfigurations;
+            RuleExecution = ruleExecutionMode;
             RulePaths = rulePaths;
         }
+
+        public RuleExecutionMode RuleExecution { get; }
 
         public IReadOnlyList<string> RulePaths { get; }
 

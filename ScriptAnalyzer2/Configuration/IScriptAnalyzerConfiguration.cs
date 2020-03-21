@@ -1,14 +1,27 @@
-﻿using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Runtime.Serialization;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
 {
+    public enum RuleExecutionMode
+    {
+        [EnumMember(Value = "default")]
+        Default = 0,
+
+        [EnumMember(Value = "parallel")]
+        Parallel = 1,
+
+        [EnumMember(Value = "sequential")]
+        Sequential = 2,
+    }
+
     public interface IScriptAnalyzerConfiguration
     {
         IReadOnlyList<string> RulePaths { get; }
 
         bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration);
+
+        RuleExecutionMode RuleExecution { get; }
     }
 }

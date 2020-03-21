@@ -21,6 +21,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
         {
             JObject configObject = JObject.Load(reader);
             return new JsonScriptAnalyzerConfiguration(
+                configObject["RuleExecution"].ToObject<RuleExecutionMode>(),
                 configObject["RulePaths"].ToObject<string[]>(),
                 (JObject)configObject["Rules"]);
         }
