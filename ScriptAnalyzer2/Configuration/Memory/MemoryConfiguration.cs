@@ -4,38 +4,33 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.InMemory
 {
-    public class LoadedConfigurationProvider : IConfigurationProvider
+    public class MemoryScriptAnalyzerConfiguration : IScriptAnalyzerConfiguration
     {
-        private readonly IScriptAnalyzerConfiguration _configuration;
-
-        public LoadedConfigurationProvider(IScriptAnalyzerConfiguration scriptAnalyzerConfiguration)
-        {
-            _configuration = scriptAnalyzerConfiguration;
-        }
-
-        public IScriptAnalyzerConfiguration GetScriptAnalyzerConfiguration()
-        {
-            return _configuration;
-        }
-    }
-
-    public class DictionaryScriptAnalyzerConfiguration : IScriptAnalyzerConfiguration
-    {
-        private readonly IReadOnlyDictionary<string, IRuleConfiguration> _ruleConfigurations;
-
-        public DictionaryScriptAnalyzerConfiguration(
+        public MemoryScriptAnalyzerConfiguration(
             RuleExecutionMode ruleExecutionMode,
             IReadOnlyList<string> rulePaths,
-            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurations)
+            MemoryRuleConfigurationCollection ruleConfigurationCollection)
         {
-            _ruleConfigurations = ruleConfigurations;
             RuleExecution = ruleExecutionMode;
             RulePaths = rulePaths;
+            RuleConfiguration = ruleConfigurationCollection;
         }
 
         public RuleExecutionMode RuleExecution { get; }
 
         public IReadOnlyList<string> RulePaths { get; }
+
+        public IRuleConfigurationCollection RuleConfiguration { get; }
+    }
+
+    public class MemoryRuleConfigurationCollection : IRuleConfigurationCollection
+    {
+        private readonly IReadOnlyDictionary<string, IRuleConfiguration> _ruleConfigurations;
+
+        public MemoryRuleConfigurationCollection(IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurations)
+        {
+            _ruleConfigurations = ruleConfigurations;
+        }
 
         public bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration)
         {

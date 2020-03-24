@@ -1,4 +1,5 @@
-﻿using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
+using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using System;
 using System.Collections.Generic;
@@ -8,32 +9,45 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
     public class TypeRuleProvider : IRuleProvider
     {
-        public static TypeRuleProvider FromAssemblyFile(IScriptAnalyzerConfiguration configuration, string assemblyPath)
+        public static TypeRuleProvider FromAssemblyFile(
+            IRuleConfigurationCollection ruleConfigurationCollection,
+            IRuleComponentProvider ruleComponentProvider,
+            string assemblyPath)
         {
-            return FromAssembly(configuration, Assembly.LoadFile(assemblyPath));
+            return FromAssembly(ruleConfigurationCollection, ruleComponentProvider, Assembly.LoadFile(assemblyPath));
         }
 
         public static TypeRuleProvider FromAssembly(
-            IScriptAnalyzerConfiguration configuration,
+            IRuleConfigurationCollection ruleConfigurationCollection,
+            IRuleComponentProvider ruleComponentProvider,
             Assembly ruleAssembly)
         {
-            return FromTypes(configuration, ruleAssembly.GetExportedTypes());
+            return FromTypes(ruleConfigurationCollection, ruleComponentProvider, ruleAssembly.GetExportedTypes());
         }
 
-        public static TypeRuleProvider FromTypes(IScriptAnalyzerConfiguration configuration, IReadOnlyList<Type> types)
+        public static TypeRuleProvider FromTypes(
+            IRuleConfigurationCollection ruleConfigurationCollection,
+            IRuleComponentProvider ruleComponentProvider,
+            IReadOnlyList<Type> types)
         {
-            return new TypeRuleProvider(GetRuleFactoriesFromTypes(configuration, types));
+            return new TypeRuleProvider(GetRuleFactoriesFromTypes(ruleConfigurationCollection, ruleComponentProvider, types));
         }
 
         internal static IReadOnlyDictionary<RuleInfo, TypeRuleFactory<ScriptRule>> GetRuleFactoriesFromTypes(
-            IScriptAnalyzerConfiguration configuration,
+            IRuleConfigurationCollection ruleConfigurationCollection,
+            IRuleComponentProvider ruleComponentProvider,
             IReadOnlyList<Type> types)
         {
             var ruleFactories = new Dictionary<RuleInfo, TypeRuleFactory<ScriptRule>>();
 
             foreach (Type type in types)
             {
-                if (RuleGeneration.TryGetRuleFromType(configuration, type, out RuleInfo ruleInfo, out TypeRuleFactory<ScriptRule> factory))
+                if (RuleGeneration.TryGetRuleFromType(
+                    ruleConfigurationCollection,
+                    ruleComponentProvider,
+                    type,
+                    out RuleInfo ruleInfo,
+                    out TypeRuleFactory<ScriptRule> factory))
                 {
                     ruleFactories[ruleInfo] = factory;
                 }

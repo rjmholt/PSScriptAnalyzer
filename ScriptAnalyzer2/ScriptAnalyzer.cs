@@ -38,7 +38,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 
         public IReadOnlyCollection<ScriptDiagnostic> AnalyzeScript(Ast scriptAst, Token[] scriptTokens, string scriptPath)
         {
-            IRuleExecutor ruleExecutor = _executorFactory.CreateRuleExecutor();
+            IRuleExecutor ruleExecutor = _executorFactory.CreateRuleExecutor(scriptAst, scriptTokens, scriptPath);
 
             foreach (ScriptRule rule in _ruleProvider.GetScriptRules())
             {

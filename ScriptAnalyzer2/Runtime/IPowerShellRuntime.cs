@@ -7,18 +7,18 @@ using SMA = System.Management.Automation;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Runtime
 {
-    public abstract class PowerShellCommandDatabase
+    public interface IPowerShellCommandDatabase
     {
-        public abstract IReadOnlyList<string> GetCommandAliases(string command);
+        IReadOnlyList<string> GetCommandAliases(string command);
 
-        public abstract string GetAliasTarget(string alias);
+        string GetAliasTarget(string alias);
 
-        public abstract IReadOnlyList<string> GetAllNamesForCommand(string command);
+        IReadOnlyList<string> GetAllNamesForCommand(string command);
     }
 
-    public class SessionStateCommandDatabase : PowerShellCommandDatabase
+    public class SessionStateCommandDatabase : IPowerShellCommandDatabase
     {
-        public SessionStateCommandDatabase Create(CommandInvocationIntrinsics invokeCommandProvider)
+        public static SessionStateCommandDatabase Create(CommandInvocationIntrinsics invokeCommandProvider)
         {
             var commandAliases = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
             var aliasTargets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -55,7 +55,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Runtime
             _commandNames = new ConcurrentDictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public override string GetAliasTarget(string alias)
+        public string GetAliasTarget(string alias)
         {
             if (_aliasTargets.TryGetValue(alias, out string target))
             {
@@ -65,7 +65,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Runtime
             return null;
         }
 
-        public override IReadOnlyList<string> GetCommandAliases(string command)
+        public IReadOnlyList<string> GetCommandAliases(string command)
         {
             if (_commandAliases.TryGetValue(command, out IReadOnlyList<string> aliases))
             {
@@ -75,7 +75,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Runtime
             return null;
         }
 
-        public override IReadOnlyList<string> GetAllNamesForCommand(string command)
+        public IReadOnlyList<string> GetAllNamesForCommand(string command)
         {
             return _commandNames.GetOrAdd(command, GenerateCommandNameList);
         }
@@ -95,42 +95,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Runtime
             }
 
             return names.Count > 0 ? names : null;
-        }
-    }
-
-    public abstract class CachedPowerShellCommandDatabase : PowerShellCommandDatabase
-    {
-        private readonly ConcurrentDictionary<string, IReadOnlyList<string>> _commandAliases;
-
-        private readonly ConcurrentDictionary<string, string> _aliasTargets;
-
-        private readonly ConcurrentDictionary<string, IReadOnlyList<string>> _commandNames;
-
-        public override IReadOnlyList<string> GetCommandAliases(string command)
-        {
-            return _commandAliases.GetOrAdd(command, CollectCommandAliases);
-        }
-
-        public override string GetAliasTarget(string alias)
-        {
-            return _aliasTargets.GetOrAdd(alias, CollectAliasTarget);
-        }
-
-        public override IReadOnlyList<string> GetAllNamesForCommand(string command)
-        {
-            return _commandNames.GetOrAdd(command, CollectAllNamesForCommand);
-        }
-
-        protected abstract IReadOnlyList<string> CollectCommandAliases(string command);
-
-        protected abstract string CollectAliasTarget(string alias);
-
-        private IReadOnlyList<string> CollectAllNamesForCommand(string command)
-        {
-            var list = new List<string>();
-            list.AddRange(GetCommandAliases(command));
-            list.Add(GetAliasTarget(command));
-            return list;
         }
     }
 }

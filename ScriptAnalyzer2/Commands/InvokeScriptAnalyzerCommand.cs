@@ -1,4 +1,6 @@
-﻿using Microsoft.PowerShell.ScriptAnalyzer.Builtin.Configuration;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
+using Microsoft.PowerShell.ScriptAnalyzer.Builtin.Configuration;
+using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using System;
 using System.Collections.Concurrent;
@@ -12,7 +14,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
     [Cmdlet(VerbsLifecycle.Invoke, "ScriptAnalyzer2")]
     public class InvokeScriptAnalyzerCommand : Cmdlet
     {
-        private static ConcurrentDictionary<string, ScriptAnalyzer> _configuredScriptAnalyzers = new ConcurrentDictionary<string, ScriptAnalyzer>();
+        private static readonly ConcurrentDictionary<ParameterSetting, ScriptAnalyzer> s_configuredScriptAnalyzers = new ConcurrentDictionary<ParameterSetting, ScriptAnalyzer>();
+
+        private static readonly FileConfigurationProvider s_fileConfigurationProvider = new FileConfigurationProvider();
+
+        private ScriptAnalyzer _scriptAnalyzer;
 
         [ValidateNotNullOrEmpty]
         [Parameter(Position = 0, Mandatory = true, ParameterSetName = "FilePath")]
@@ -24,8 +30,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
         [Parameter]
         public string ConfigurationPath { get; set; }
-
-        private ScriptAnalyzer _scriptAnalyzer;
 
         protected override void BeginProcessing()
         {
@@ -61,18 +65,35 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
         private ScriptAnalyzer GetScriptAnalyzer()
         {
-            string configurationPath = ConfigurationPath ?? string.Empty;
+            var parameters = new ParameterSetting(this);
+            return s_configuredScriptAnalyzers.GetOrAdd(parameters, CreateScriptAnalyzerWithParameters));
+        }
 
-            return _configuredScriptAnalyzers.GetOrAdd(configurationPath, (path) =>
+        private ScriptAnalyzer CreateScriptAnalyzerWithParameters(ParameterSetting parameters)
+        {
+            var scriptAnalyzerBuilder = new ScriptAnalyzerBuilder();
+
+            if (string.IsNullOrEmpty(parameters.ConfigurationPath))
             {
-                var builder = ConfigurationPath != null
-                    ? RuleProviderBuilder.FromConfigurationFile(ConfigurationPath)
-                    : new RuleProviderBuilder(BuiltinScriptAnalyzerConfiguration.Instance);
+                scriptAnalyzerBuilder = scriptAnalyzerBuilder.AddConfigurationFile(parameters.ConfigurationPath);
+            }
 
-                builder.AddBuiltinRules();
+            return scriptAnalyzerBuilder.Build();
+        }
 
-                throw new NotImplementedException();
-            });
+        private struct ParameterSetting
+        {
+            public ParameterSetting(InvokeScriptAnalyzerCommand command)
+            {
+                ConfigurationPath = command.ConfigurationPath;
+            }
+
+            public string ConfigurationPath { get; }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(ConfigurationPath);
+            }
         }
     }
 }

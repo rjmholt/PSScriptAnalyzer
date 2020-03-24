@@ -20,8 +20,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
     {
         IReadOnlyList<string> RulePaths { get; }
 
-        bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration);
-
         RuleExecutionMode RuleExecution { get; }
+
+        IRuleConfigurationCollection RuleConfiguration { get; }
+    }
+
+    public interface IRuleConfigurationCollection
+    {
+        bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration);
     }
 }

@@ -1,11 +1,15 @@
-﻿using Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
+using Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules;
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
+using Microsoft.PowerShell.ScriptAnalyzer.Configuration.InMemory;
+using Microsoft.PowerShell.ScriptAnalyzer.Execution;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
+using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
 using Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules;
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Management.Automation.Runspaces;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
 {
@@ -21,9 +25,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
             typeof(UseShouldProcessForStateChangingFunctions),
         };
 
-        public static BuiltinRuleProvider WithConfiguration(IScriptAnalyzerConfiguration configuration)
+        public static BuiltinRuleProvider Create(
+            IRuleConfigurationCollection ruleConfigurationCollection,
+            IRuleComponentProvider ruleComponentProvider)
         {
-            return new BuiltinRuleProvider(TypeRuleProvider.GetRuleFactoriesFromTypes(configuration, s_defaultRules));
+            return new BuiltinRuleProvider(TypeRuleProvider.GetRuleFactoriesFromTypes(ruleConfigurationCollection, ruleComponentProvider, s_defaultRules));
         }
 
         private BuiltinRuleProvider(
@@ -32,4 +38,40 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
         {
         }
     }
+
+    public static class Default
+    {
+        private static readonly Lazy<IRuleComponentProvider> s_ruleComponentProviderLazy = new Lazy<IRuleComponentProvider>(BuildRuleComponentProvider);
+
+        public static IRuleConfigurationCollection RuleConfiguration { get; } = new MemoryRuleConfigurationCollection(new Dictionary<string, IRuleConfiguration>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "PS/AvoidUsingEmptyCatchBlock", null },
+            { "PS/AvoidGlobalVars", null },
+            { "PS/AvoidUsingPositionalParameters", null },
+            { "PS/AvoidUsingWMICmdlet", null },
+            { "PS/UseDeclaredVarsMoreThanAssignments", null },
+            { "PS/UseShouldProcessForStateChangingFunctions", null },
+        });
+
+        public static IRuleExecutorFactory RuleExecutorFactory { get; } = new ParallelLinqRuleExecutorFactory();
+
+        public static IRuleComponentProvider RuleComponentProvider => s_ruleComponentProviderLazy.Value;
+
+        private static IRuleComponentProvider BuildRuleComponentProvider()
+        {
+            return new RuleComponentProviderBuilder()
+                .AddSingleton(InstantiatePowerShellCommandDatabase())
+                .Build();
+        }
+
+        private static IPowerShellCommandDatabase InstantiatePowerShellCommandDatabase()
+        {
+            using (Runspace runspace = RunspaceFactory.CreateRunspace())
+            {
+                runspace.Open();
+                return SessionStateCommandDatabase.Create(runspace.SessionStateProxy.InvokeCommand);
+            }
+        }
+    }
+
 }

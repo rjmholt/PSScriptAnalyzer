@@ -1,11 +1,10 @@
-﻿using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
+using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Management.Automation.Language;
 using System.Reflection;
 using System.Threading;
 
@@ -27,40 +26,40 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
     public class ConstructorInjectingRuleFactory<TRule> : TypeRuleFactory<TRule>
     {
+        private readonly IRuleComponentProvider _ruleComponentProvider;
+
         private readonly RuleInfo _ruleInfo;
 
         private readonly ConstructorInfo _ctorInfo;
 
         private readonly IRuleConfiguration _ruleConfiguration;
 
-        private readonly Lazy<object[]> _ctorArgsLazy;
-
         private readonly Lazy<Func<TRule>> _factoryDelegateLazy;
 
         private int _callCount;
 
         public ConstructorInjectingRuleFactory(
+            IRuleComponentProvider ruleComponentProvider,
             RuleInfo ruleInfo,
             ConstructorInfo ctorInfo)
-            : this(ruleInfo, ctorInfo, ruleConfiguration: null)
+            : this(ruleComponentProvider, ruleInfo, ctorInfo, ruleConfiguration: null)
         {
         }
 
         public ConstructorInjectingRuleFactory(
+            IRuleComponentProvider ruleComponentProvider,
             RuleInfo ruleInfo,
             ConstructorInfo ctorInfo,
             IRuleConfiguration ruleConfiguration)
             : base(ruleInfo)
         {
+            _ruleComponentProvider = ruleComponentProvider;
             _ruleInfo = ruleInfo;
             _ctorInfo = ctorInfo;
             _ruleConfiguration = ruleConfiguration;
-            _ctorArgsLazy = new Lazy<object[]>(GetCtorArgs);
             _factoryDelegateLazy = new Lazy<Func<TRule>>(CreateFactoryDelegate);
             _callCount = 0;
         }
-
-        private object[] CtorArgs => _ctorArgsLazy.Value;
 
         private Func<TRule> FactoryDelegate => _factoryDelegateLazy.Value;
 
@@ -76,7 +75,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
             // If the rule is being run repeatedly, optimise the constructor invocation
             return Interlocked.Increment(ref _callCount) > 4
                 ? FactoryDelegate()
-                : (TRule)_ctorInfo.Invoke(CtorArgs);
+                : (TRule)_ctorInfo.Invoke(GetCtorArgs());
         }
 
         private object[] GetCtorArgs()
@@ -97,6 +96,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
                     continue;
                 }
 
+                if (_ruleComponentProvider.TryGetComponentInstance(ctorParameter.ParameterType, out object ctorArg))
+                {
+                    ctorArgs.Add(ctorArg);
+                    continue;
+                }
+
                 throw new ArgumentException($"Rule constructor requires unknown argument: '{ctorParameter.Name}' of type '{ctorParameter.ParameterType.FullName}'");
             }
 
@@ -105,23 +110,27 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 
         private Func<TRule> CreateFactoryDelegate()
         {
-            var args = new Expression[CtorArgs.Length];
-            for (int i = 0; i < args.Length; i++)
-            {
-                args[i] = Expression.Constant(CtorArgs[i]);
-            }
+            MethodInfo getCtorArgsMethod = typeof(ConstructorInjectingRuleFactory<>).GetMethod(
+                nameof(GetCtorArgs),
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            MethodCallExpression getArgsCall = Expression.Call(getCtorArgsMethod);
 
             return Expression.Lambda<Func<TRule>>(
                 Expression.New(
                     _ctorInfo,
-                    args)).Compile();
+                    getArgsCall)).Compile();
         }
     }
 
     public class ConstructorInjectingDisposableRuleFactory<TRule> : ConstructorInjectingRuleFactory<TRule>
     {
-        public ConstructorInjectingDisposableRuleFactory(RuleInfo ruleInfo, ConstructorInfo ctorInfo, IRuleConfiguration ruleConfiguration)
-            : base(ruleInfo, ctorInfo, ruleConfiguration)
+        public ConstructorInjectingDisposableRuleFactory(
+            IRuleComponentProvider ruleComponentProvider,
+            RuleInfo ruleInfo,
+            ConstructorInfo ctorInfo,
+            IRuleConfiguration ruleConfiguration)
+            : base(ruleComponentProvider, ruleInfo, ctorInfo, ruleConfiguration)
         {
         }
 
@@ -135,8 +144,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     {
         private readonly TRule _instance;
 
-        public ConstructorInjectionIdempotentRuleFactory(RuleInfo ruleInfo, ConstructorInfo ctorInfo, IRuleConfiguration ruleConfiguration)
-            : base(ruleInfo, ctorInfo, ruleConfiguration)
+        public ConstructorInjectionIdempotentRuleFactory(
+            IRuleComponentProvider ruleComponentProvider,
+            RuleInfo ruleInfo,
+            ConstructorInfo ctorInfo,
+            IRuleConfiguration ruleConfiguration)
+            : base(ruleComponentProvider, ruleInfo, ctorInfo, ruleConfiguration)
         {
             _instance = InstantiateRuleInstance();
         }
@@ -151,8 +164,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     {
         private readonly ResettablePool _pool;
 
-        public ConstructorInjectingResettableRulePoolingFactory(RuleInfo ruleInfo, ConstructorInfo ctorInfo, IRuleConfiguration ruleConfiguration)
-            : base(ruleInfo, ctorInfo, ruleConfiguration)
+        public ConstructorInjectingResettableRulePoolingFactory(
+            IRuleComponentProvider ruleComponentProvider,
+            RuleInfo ruleInfo,
+            ConstructorInfo ctorInfo,
+            IRuleConfiguration ruleConfiguration)
+            : base(ruleComponentProvider, ruleInfo, ctorInfo, ruleConfiguration)
         {
             _pool = new ResettablePool(() => (IResettable)InstantiateRuleInstance());
         }
