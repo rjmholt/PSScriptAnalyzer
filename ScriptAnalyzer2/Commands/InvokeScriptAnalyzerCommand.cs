@@ -16,8 +16,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
     {
         private static readonly ConcurrentDictionary<ParameterSetting, ScriptAnalyzer> s_configuredScriptAnalyzers = new ConcurrentDictionary<ParameterSetting, ScriptAnalyzer>();
 
-        private static readonly FileConfigurationProvider s_fileConfigurationProvider = new FileConfigurationProvider();
-
         private ScriptAnalyzer _scriptAnalyzer;
 
         [ValidateNotNullOrEmpty]
@@ -30,6 +28,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
         [Parameter]
         public string ConfigurationPath { get; set; }
+
+        [Parameter]
+        public string[] ExcludeRules { get; set; }
 
         protected override void BeginProcessing()
         {
@@ -71,14 +72,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
         private ScriptAnalyzer CreateScriptAnalyzerWithParameters(ParameterSetting parameters)
         {
-            var scriptAnalyzerBuilder = new ScriptAnalyzerBuilder();
-
-            if (string.IsNullOrEmpty(parameters.ConfigurationPath))
-            {
-                scriptAnalyzerBuilder = scriptAnalyzerBuilder.AddConfigurationFile(parameters.ConfigurationPath);
-            }
-
-            return scriptAnalyzerBuilder.Build();
         }
 
         private struct ParameterSetting

@@ -29,6 +29,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
             return this;
         }
 
+        public ScriptAnalyzerBuilder AddBuiltinRules()
+        {
+            _ruleProviders.Add(TypeRuleProvider.FromTypes(
+                Default.RuleConfiguration,
+                Default.RuleComponentProvider,
+                BuiltinRules.DefaultRules));
+            return this;
+        }
+
         public ScriptAnalyzerBuilder AddBuiltinRules(Action<BuiltinRulesBuilder> configureBuiltinRules)
         {
             var builtinRulesBuilder = new BuiltinRulesBuilder();

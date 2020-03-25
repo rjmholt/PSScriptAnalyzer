@@ -23,11 +23,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             var psdConverter = new PsdTypedObjectConverter();
 
             var configuration = psdConverter.Convert<IReadOnlyDictionary<string, ExpressionAst>>(ast);
-            var ruleExecutionMode = psdConverter.Convert<RuleExecutionMode>(configuration["RuleExecution"]);
-            var rulePaths = psdConverter.Convert<IReadOnlyList<string>>(configuration["RulePaths"]);
-            var ruleConfigurations = psdConverter.Convert<IReadOnlyDictionary<string, HashtableAst>>(configuration["Rules"]);
+            var builtinRulePreference = psdConverter.Convert<BuiltinRulePreference?>(configuration[ConfigurationKeys.BuiltinRulePreference]);
+            var ruleExecutionMode = psdConverter.Convert<RuleExecutionMode?>(configuration[ConfigurationKeys.RuleExecutionMode]);
+            var rulePaths = psdConverter.Convert<IReadOnlyList<string>>(configuration[ConfigurationKeys.RulePaths]);
+            var ruleConfigurations = psdConverter.Convert<IReadOnlyDictionary<string, HashtableAst>>(configuration[ConfigurationKeys.RuleConfigurations]);
 
-            return new PsdScriptAnalyzerConfiguration(psdConverter, ruleExecutionMode, rulePaths, ruleConfigurations);
+            return new PsdScriptAnalyzerConfiguration(psdConverter, builtinRulePreference, ruleExecutionMode, rulePaths, ruleConfigurations);
         }
 
         private readonly IReadOnlyDictionary<string, HashtableAst> _ruleConfigurations;
@@ -38,13 +39,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
         public PsdScriptAnalyzerConfiguration(
             PsdTypedObjectConverter psdConverter,
-            RuleExecutionMode ruleExecutionMode,
+            BuiltinRulePreference? builtinRulePreference,
+            RuleExecutionMode? ruleExecutionMode,
             IReadOnlyList<string> rulePaths,
             IReadOnlyDictionary<string, HashtableAst> ruleConfigurations)
         {
             _ruleConfigurations = ruleConfigurations;
             _ruleConfigurationCache = new ConcurrentDictionary<string, IRuleConfiguration>();
             _psdConverter = psdConverter;
+            BuiltinRules = builtinRulePreference;
             RuleExecution = ruleExecutionMode;
             RulePaths = rulePaths;
         }
