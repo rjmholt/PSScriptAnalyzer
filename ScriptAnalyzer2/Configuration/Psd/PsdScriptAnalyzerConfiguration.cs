@@ -49,37 +49,40 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             RulePaths = rulePaths;
         }
 
-        public RuleExecutionMode RuleExecution { get; }
+        public BuiltinRulePreference? BuiltinRules { get; }
+
+        public RuleExecutionMode? RuleExecution { get; }
 
         public IReadOnlyList<string> RulePaths { get; }
 
-        public bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration)
+        public IReadOnlyDictionary<string, IRuleConfiguration> RuleConfiguration { get; }
+    }
+
+    public class PsdRuleConfiguration : LazyConvertedRuleConfiguration<HashtableAst>
+    {
+        private readonly PsdTypedObjectConverter _psdConverter;
+
+        public PsdRuleConfiguration(
+            PsdTypedObjectConverter psdConverter,
+            CommonConfiguration common,
+            HashtableAst configurationHashtableAst)
+            : base(common, configurationHashtableAst)
+        {
+            _psdConverter = psdConverter;
+        }
+
+        public override bool TryConvertObject(Type type, HashtableAst configuration, out object result)
         {
             try
             {
-                configuration = _ruleConfigurationCache.GetOrAdd(ruleName, (ruleName) => GetConfigurationForRule(ruleName, configurationType));
+                result = _psdConverter.Convert(type, configuration);
                 return true;
             }
-            catch (ConfigurationNotFoundException)
+            catch
             {
-                configuration = default;
+                result = null;
                 return false;
             }
-        }
-
-        private IRuleConfiguration GetConfigurationForRule(string ruleName, Type ruleConfigurationType)
-        {
-            if (!_ruleConfigurations.TryGetValue(ruleName, out HashtableAst configurationAst))
-            {
-                throw new ConfigurationNotFoundException();
-            }
-
-            if (ruleConfigurationType == typeof(IRuleConfiguration))
-            {
-                return (IRuleConfiguration)_psdConverter.Convert(typeof(RuleConfiguration), configurationAst);
-            }
-
-            return (IRuleConfiguration)_psdConverter.Convert(ruleConfigurationType, configurationAst);
         }
     }
 }

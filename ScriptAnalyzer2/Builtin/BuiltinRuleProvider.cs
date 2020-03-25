@@ -13,9 +13,9 @@ using System.Management.Automation.Runspaces;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
 {
-    public class BuiltinRuleProvider : TypeRuleProvider
+    public static class BuiltinRules
     {
-        private static readonly IReadOnlyList<Type> s_defaultRules = new []
+        public static IReadOnlyList<Type> DefaultRules { get; } = new[]
         {
             typeof(AvoidEmptyCatchBlock),
             typeof(AvoidGlobalVars),
@@ -24,19 +24,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
             typeof(UseDeclaredVarsMoreThanAssignments),
             typeof(UseShouldProcessForStateChangingFunctions),
         };
-
-        public static BuiltinRuleProvider Create(
-            IRuleConfigurationCollection ruleConfigurationCollection,
-            IRuleComponentProvider ruleComponentProvider)
-        {
-            return new BuiltinRuleProvider(TypeRuleProvider.GetRuleFactoriesFromTypes(ruleConfigurationCollection, ruleComponentProvider, s_defaultRules));
-        }
-
-        private BuiltinRuleProvider(
-            IReadOnlyDictionary<RuleInfo, TypeRuleFactory<ScriptRule>> scriptRuleFactories)
-            : base(scriptRuleFactories)
-        {
-        }
     }
 
     public static class Default

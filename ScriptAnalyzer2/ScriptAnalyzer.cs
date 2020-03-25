@@ -9,17 +9,17 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
 {
     public class ScriptAnalyzer
     {
-        private readonly IRuleProvider _ruleProvider;
-
         private readonly IRuleExecutorFactory _executorFactory;
 
         public ScriptAnalyzer(
             IRuleProvider ruleProvider,
             IRuleExecutorFactory executorFactory)
         {
-            _ruleProvider = ruleProvider;
+            RuleProvider = ruleProvider;
             _executorFactory = executorFactory;
         }
+
+        public IRuleProvider RuleProvider { get; }
 
         public IReadOnlyCollection<ScriptDiagnostic> AnalyzeScriptPath(string path)
         {
@@ -40,7 +40,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
         {
             IRuleExecutor ruleExecutor = _executorFactory.CreateRuleExecutor(scriptAst, scriptTokens, scriptPath);
 
-            foreach (ScriptRule rule in _ruleProvider.GetScriptRules())
+            foreach (ScriptRule rule in RuleProvider.GetScriptRules())
             {
                 ruleExecutor.AddRule(rule);
             }

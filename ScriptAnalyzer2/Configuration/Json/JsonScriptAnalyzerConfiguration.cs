@@ -31,26 +31,49 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
             }
         }
 
-        private readonly JObject _ruleConfigurations;
+        private readonly IReadOnlyDictionary<string, JsonRuleConfiguration> _ruleConfigurations;
 
-        private readonly ConcurrentDictionary<string, IRuleConfiguration> _ruleConfigurationCache;
-
-        public JsonScriptAnalyzerConfiguration(RuleExecutionMode ruleExecutionMode, IReadOnlyList<string> rulePaths, JObject ruleConfigurations)
+        public JsonScriptAnalyzerConfiguration(
+            BuiltinRulePreference? builtinRulePreference,
+            RuleExecutionMode? ruleExecutionMode,
+            IReadOnlyList<string> rulePaths,
+            IReadOnlyDictionary<string, JsonRuleConfiguration> ruleConfigurations)
         {
             _ruleConfigurations = ruleConfigurations;
-            _ruleConfigurationCache = new ConcurrentDictionary<string, IRuleConfiguration>();
             RulePaths = rulePaths;
             RuleExecution = ruleExecutionMode;
         }
 
-        public RuleExecutionMode RuleExecution { get; }
+        public RuleExecutionMode? RuleExecution { get; }
+
+        public BuiltinRulePreference? BuiltinRules { get; }
 
         public IReadOnlyList<string> RulePaths { get; }
 
-        public bool TryGetRuleConfiguration(Type configurationType, string ruleName, out IRuleConfiguration configuration)
+        public IReadOnlyDictionary<string, IRuleConfiguration> RuleConfiguration { get; }
+    }
+
+    public class JsonRuleConfiguration : LazyConvertedRuleConfiguration<JObject>
+    {
+        public JsonRuleConfiguration(
+            CommonConfiguration commonConfiguration,
+            JObject configurationJson)
+            : base(commonConfiguration, configurationJson)
         {
-            configuration = _ruleConfigurationCache.GetOrAdd(ruleName, (ruleName) => (IRuleConfiguration)_ruleConfigurations[ruleName].ToObject(configurationType));
-            return true;
+        }
+
+        public override bool TryConvertObject(Type type, JObject configuration, out object result)
+        {
+            try
+            {
+                result = configuration.ToObject(type);
+                return true;
+            }
+            catch
+            {
+                result = null;
+                return false;
+            }
         }
     }
 }

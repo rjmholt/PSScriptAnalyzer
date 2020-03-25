@@ -20,10 +20,23 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
             JsonSerializer serializer)
         {
             JObject configObject = JObject.Load(reader);
+
+            var ruleConfigurationsObject = (JObject)configObject[ConfigurationKeys.RuleConfigurations];
+            var configDictionary = new Dictionary<string, JsonRuleConfiguration>(ruleConfigurationsObject.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, JToken> configEntry in ruleConfigurationsObject)
+            {
+                var ruleConfigObject = (JObject)configEntry.Value;
+
+                var commonConfiguration = ruleConfigObject[ConfigurationKeys.CommonConfiguration]?.ToObject<CommonConfiguration>() ?? CommonConfiguration.Default;
+
+                configDictionary[configEntry.Key] = new JsonRuleConfiguration(commonConfiguration, (JObject)configEntry.Value);
+            }
+
             return new JsonScriptAnalyzerConfiguration(
-                configObject["RuleExecution"].ToObject<RuleExecutionMode>(),
-                configObject["RulePaths"].ToObject<string[]>(),
-                (JObject)configObject["Rules"]);
+                configObject[ConfigurationKeys.BuiltinRulePreference]?.ToObject<BuiltinRulePreference>(),
+                configObject[ConfigurationKeys.RuleExecutionMode]?.ToObject<RuleExecutionMode>(),
+                configObject[ConfigurationKeys.RulePaths]?.ToObject<string[]>() ?? Array.Empty<string>(),
+                configDictionary);
         }
 
         public override void WriteJson(JsonWriter writer, [AllowNull] JsonScriptAnalyzerConfiguration value, JsonSerializer serializer)
@@ -32,5 +45,4 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
             throw new NotImplementedException();
         }
     }
-
 }

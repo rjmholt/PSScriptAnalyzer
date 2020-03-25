@@ -9,7 +9,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     internal static class RuleGeneration
     {
         public static bool TryGetRuleFromType(
-            IScriptAnalyzerConfiguration configuration,
+            IRuleConfigurationCollection ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             Type type,
             out RuleInfo ruleInfo,
@@ -18,13 +18,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
             ruleFactory = null;
             return RuleInfo.TryGetFromRuleType(type, out ruleInfo)
                 && typeof(ScriptRule).IsAssignableFrom(type)
-                && TryGetRuleFactory(ruleInfo, type, configuration, ruleComponentProvider, out ruleFactory);
+                && TryGetRuleFactory(ruleInfo, type, ruleConfigurationCollection, ruleComponentProvider, out ruleFactory);
         }
 
         private static bool TryGetRuleFactory<TRuleBase>(
             RuleInfo ruleInfo,
             Type ruleType,
-            IScriptAnalyzerConfiguration configuration,
+            IRuleConfigurationCollection ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             out TypeRuleFactory<TRuleBase> factory)
         {
@@ -53,7 +53,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
             IRuleConfiguration ruleConfiguration = null;
             if (configurationType != null)
             {
-                configuration.TryGetRuleConfiguration(configurationType, ruleInfo.FullName, out ruleConfiguration);
+                ruleConfigurationCollection.TryGetRuleConfiguration(configurationType, ruleInfo.FullName, out ruleConfiguration);
             }
 
             if (ruleInfo.IsIdempotent)
