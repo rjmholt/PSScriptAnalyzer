@@ -1,5 +1,4 @@
-﻿using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.PowerShell.ScriptAnalyzer.Builtin;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Builtin;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -24,7 +23,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
     {
         CommonConfiguration Common { get; }
 
-        object AsTypedConfiguration(Type configurationType);
+        IRuleConfiguration AsTypedConfiguration(Type configurationType);
     }
 
     public class RuleConfiguration : IRuleConfiguration
@@ -38,7 +37,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
 
         public CommonConfiguration Common { get; }
 
-        public virtual object AsTypedConfiguration(Type configurationType)
+        public virtual IRuleConfiguration AsTypedConfiguration(Type configurationType)
         {
             if (configurationType == typeof(RuleConfiguration))
             {
@@ -53,7 +52,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
     {
         private readonly TConfiguration _configurationObject;
 
-        private object _convertedObject;
+        private IRuleConfiguration _convertedObject;
 
         private Type _convertedObjectType;
 
@@ -67,9 +66,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
 
         public CommonConfiguration Common { get; }
 
-        public abstract bool TryConvertObject(Type type, TConfiguration configuration, out object result);
+        public abstract bool TryConvertObject(Type type, TConfiguration configuration, out IRuleConfiguration result);
 
-        public object AsTypedConfiguration(Type configurationType)
+        public IRuleConfiguration AsTypedConfiguration(Type configurationType)
         {
             if (_convertedObject != null
                 && configurationType.IsAssignableFrom(_convertedObjectType))
@@ -79,6 +78,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
 
             if (TryConvertObject(configurationType, _configurationObject, out _convertedObject))
             {
+                _convertedObjectType = configurationType;
                 return _convertedObject;
             }
 

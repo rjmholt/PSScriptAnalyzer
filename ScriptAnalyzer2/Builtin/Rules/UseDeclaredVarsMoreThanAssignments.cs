@@ -178,6 +178,8 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             Dictionary<string, AssignmentStatementAst> assignmentsDictionary_OrdinalIgnoreCase)
         {
             throw new NotImplementedException();
+
+            /*
             IReadOnlyList<string> getVariableCmdletNamesAndAliases = null; //Helper.Instance.CmdletNameAndAliases("Get-Variable");
             IEnumerable<Ast> getVariableCommandAsts = scriptBlockAst.FindAll(testAst => testAst is CommandAst commandAst &&
                 getVariableCmdletNamesAndAliases.Contains(commandAst.GetCommandName(), StringComparer.OrdinalIgnoreCase), true);
@@ -216,6 +218,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                     }
                 }
             }
+            */
         }
     }
 }

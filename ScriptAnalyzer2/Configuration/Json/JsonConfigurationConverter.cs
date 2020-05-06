@@ -1,8 +1,8 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Internal;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
 {
@@ -15,7 +15,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
         public override JsonScriptAnalyzerConfiguration ReadJson(
             JsonReader reader,
             Type objectType,
-            [AllowNull] JsonScriptAnalyzerConfiguration existingValue,
+            JsonScriptAnalyzerConfiguration existingValue,
             bool hasExistingValue,
             JsonSerializer serializer)
         {
@@ -35,11 +35,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
             return new JsonScriptAnalyzerConfiguration(
                 configObject[ConfigurationKeys.BuiltinRulePreference]?.ToObject<BuiltinRulePreference>(),
                 configObject[ConfigurationKeys.RuleExecutionMode]?.ToObject<RuleExecutionMode>(),
-                configObject[ConfigurationKeys.RulePaths]?.ToObject<string[]>() ?? Array.Empty<string>(),
+                configObject[ConfigurationKeys.RulePaths]?.ToObject<string[]>() ?? Polyfill.GetEmptyArray<string>(),
                 configDictionary);
         }
 
-        public override void WriteJson(JsonWriter writer, [AllowNull] JsonScriptAnalyzerConfiguration value, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, JsonScriptAnalyzerConfiguration value, JsonSerializer serializer)
         {
             // Not needed - CanWrite is false
             throw new NotImplementedException();

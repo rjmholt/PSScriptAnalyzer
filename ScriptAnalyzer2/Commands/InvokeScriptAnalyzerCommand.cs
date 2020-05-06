@@ -1,13 +1,12 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
-using Microsoft.PowerShell.ScriptAnalyzer.Builtin.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
-using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Management.Automation;
-using System.Reflection;
-using System.Text;
+
+#if !CORECLR
+using Microsoft.PowerShell.ScriptAnalyzer.Internal;
+#endif
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 {
@@ -67,11 +66,20 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
         private ScriptAnalyzer GetScriptAnalyzer()
         {
             var parameters = new ParameterSetting(this);
-            return s_configuredScriptAnalyzers.GetOrAdd(parameters, CreateScriptAnalyzerWithParameters));
+            return s_configuredScriptAnalyzers.GetOrAdd(parameters, CreateScriptAnalyzerWithParameters);
         }
 
         private ScriptAnalyzer CreateScriptAnalyzerWithParameters(ParameterSetting parameters)
         {
+            var configBuilder = new ScriptAnalyzerConfigurationBuilder()
+                .WithBuiltinRuleSet(BuiltinRulePreference.Default);
+
+            if (parameters.ConfigurationPath != null)
+            {
+                configBuilder.AddConfigurationFile(parameters.ConfigurationPath);
+            }
+
+            return configBuilder.Build().CreateScriptAnalyzer();
         }
 
         private struct ParameterSetting
@@ -85,7 +93,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
             public override int GetHashCode()
             {
+#if CORECLR
                 return HashCode.Combine(ConfigurationPath);
+#else
+                return HashCodeCombinator.Create()
+                    .Add(ConfigurationPath)
+                    .GetHashCode();
+#endif
             }
         }
     }

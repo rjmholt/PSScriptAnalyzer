@@ -62,11 +62,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
         {
         }
 
-        public override bool TryConvertObject(Type type, JObject configuration, out object result)
+        public override bool TryConvertObject(Type type, JObject configuration, out IRuleConfiguration result)
         {
             try
             {
-                result = configuration.ToObject(type);
+                result = (IRuleConfiguration)configuration.ToObject(type);
                 return true;
             }
             catch

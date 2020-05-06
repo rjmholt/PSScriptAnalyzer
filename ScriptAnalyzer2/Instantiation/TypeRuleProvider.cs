@@ -10,7 +10,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     public class TypeRuleProvider : IRuleProvider
     {
         public static TypeRuleProvider FromAssemblyFile(
-            IRuleConfigurationCollection ruleConfigurationCollection,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             string assemblyPath)
         {
@@ -18,7 +18,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         }
 
         public static TypeRuleProvider FromAssembly(
-            IRuleConfigurationCollection ruleConfigurationCollection,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             Assembly ruleAssembly)
         {
@@ -26,7 +26,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         }
 
         public static TypeRuleProvider FromTypes(
-            IRuleConfigurationCollection ruleConfigurationCollection,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             IReadOnlyList<Type> types)
         {
@@ -34,7 +34,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         }
 
         internal static IReadOnlyDictionary<RuleInfo, TypeRuleFactory<ScriptRule>> GetRuleFactoriesFromTypes(
-            IRuleConfigurationCollection ruleConfigurationCollection,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             IReadOnlyList<Type> types)
         {

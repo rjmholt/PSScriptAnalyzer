@@ -29,7 +29,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
 
         public RuleDescriptionAttribute(string description)
         {
-            _descriptionLazy = new Lazy<string>(description);
+            _descriptionLazy = new Lazy<string>(() => description);
         }
 
         public RuleDescriptionAttribute(Type resourceProvider, string resourceKey)

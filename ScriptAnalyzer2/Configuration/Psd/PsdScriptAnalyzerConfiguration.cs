@@ -74,11 +74,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
             _psdConverter = psdConverter;
         }
 
-        public override bool TryConvertObject(Type type, HashtableAst configuration, out object result)
+        public override bool TryConvertObject(Type type, HashtableAst configuration, out IRuleConfiguration result)
         {
             try
             {
-                result = _psdConverter.Convert(type, configuration);
+                result = (IRuleConfiguration)_psdConverter.Convert(type, configuration);
                 return true;
             }
             catch

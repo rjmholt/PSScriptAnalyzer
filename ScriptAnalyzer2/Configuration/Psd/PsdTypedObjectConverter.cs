@@ -447,7 +447,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Psd
 
             if (hashtableDict.Count > 0)
             {
-                throw new ArgumentException($"Unknown key(s) in hashtable: {string.Join(',', hashtableDict.Keys)}");
+                throw new ArgumentException($"Unknown key(s) in hashtable: {string.Join(",", hashtableDict.Keys)}");
             }
         }
 

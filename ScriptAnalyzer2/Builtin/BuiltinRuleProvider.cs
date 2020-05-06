@@ -1,10 +1,7 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
 using Microsoft.PowerShell.ScriptAnalyzer.Builtin.Rules;
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
-using Microsoft.PowerShell.ScriptAnalyzer.Configuration.InMemory;
 using Microsoft.PowerShell.ScriptAnalyzer.Execution;
-using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
-using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
 using Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules;
 using System;
@@ -30,7 +27,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
     {
         private static readonly Lazy<IRuleComponentProvider> s_ruleComponentProviderLazy = new Lazy<IRuleComponentProvider>(BuildRuleComponentProvider);
 
-        public static IRuleConfigurationCollection RuleConfiguration { get; } = new MemoryRuleConfigurationCollection(new Dictionary<string, IRuleConfiguration>(StringComparer.OrdinalIgnoreCase)
+        public static IReadOnlyDictionary<string, IRuleConfiguration> RuleConfiguration { get; } = new Dictionary<string, IRuleConfiguration>(StringComparer.OrdinalIgnoreCase)
         {
             { "PS/AvoidUsingEmptyCatchBlock", null },
             { "PS/AvoidGlobalVars", null },
@@ -38,7 +35,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
             { "PS/AvoidUsingWMICmdlet", null },
             { "PS/UseDeclaredVarsMoreThanAssignments", null },
             { "PS/UseShouldProcessForStateChangingFunctions", null },
-        });
+        };
 
         public static IRuleExecutorFactory RuleExecutorFactory { get; } = new ParallelLinqRuleExecutorFactory();
 

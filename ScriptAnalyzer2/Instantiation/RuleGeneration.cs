@@ -2,6 +2,7 @@
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
@@ -9,7 +10,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     internal static class RuleGeneration
     {
         public static bool TryGetRuleFromType(
-            IRuleConfigurationCollection ruleConfigurationCollection,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             Type type,
             out RuleInfo ruleInfo,
@@ -24,7 +25,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         private static bool TryGetRuleFactory<TRuleBase>(
             RuleInfo ruleInfo,
             Type ruleType,
-            IRuleConfigurationCollection ruleConfigurationCollection,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IRuleComponentProvider ruleComponentProvider,
             out TypeRuleFactory<TRuleBase> factory)
         {
@@ -50,10 +51,10 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
                 baseType = baseType.BaseType;
             }
 
-            IRuleConfiguration ruleConfiguration = null;
-            if (configurationType != null)
+            if (ruleConfigurationCollection.TryGetValue(ruleInfo.FullName, out IRuleConfiguration ruleConfiguration)
+                && configurationType != null)
             {
-                ruleConfigurationCollection.TryGetRuleConfiguration(configurationType, ruleInfo.FullName, out ruleConfiguration);
+                ruleConfiguration = ruleConfiguration.AsTypedConfiguration(configurationType);
             }
 
             if (ruleInfo.IsIdempotent)

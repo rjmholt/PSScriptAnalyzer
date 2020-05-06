@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation.Language;
-using System.Threading.Tasks.Dataflow;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer
 {
@@ -89,6 +88,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
         }
     }
 
+    /*
     internal class DataflowRuleExecutor : IRuleExecutor
     {
         private static readonly ExecutionDataflowBlockOptions s_parallelExecutionOptions = new ExecutionDataflowBlockOptions()
@@ -146,4 +146,5 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
             return rule.AnalyzeScript(_scriptAst, _scriptTokens, _scriptPath);
         }
     }
+    */
 }
