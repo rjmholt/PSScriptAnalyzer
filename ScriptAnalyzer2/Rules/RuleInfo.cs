@@ -33,6 +33,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
             return TryGetFromAttributeList(functionInfo.ScriptBlock.Attributes, SourceType.PowerShellModule, functionInfo.ModuleName, out ruleInfo);
         }
 
+        internal static bool TryGetFromCmdletInfo(CmdletInfo cmdletInfo, out RuleInfo ruleInfo)
+        {
+            return TryGetFromAttributeList(cmdletInfo.ImplementingType.GetCustomAttributes(), SourceType.PowerShellModule, cmdletInfo.ModuleName, out ruleInfo);
+        }
+
         private static bool TryGetFromAttributeList(IEnumerable<Attribute> attributes, SourceType source, string ruleCollectionName, out RuleInfo ruleInfo)
         {
             RuleAttribute ruleAttribute = null;

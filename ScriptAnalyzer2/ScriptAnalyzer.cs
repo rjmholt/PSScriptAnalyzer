@@ -1,4 +1,5 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
+using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Execution;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using Microsoft.PowerShell.ScriptAnalyzer.Rules;
@@ -12,12 +13,13 @@ namespace Microsoft.PowerShell.ScriptAnalyzer
         public static ScriptAnalyzer Create(
             RuleComponentProvider ruleComponentProvider,
             IRuleExecutorFactory executorFactory,
-            IReadOnlyList<IRuleProviderFactory> ruleProviderFactories)
+            IReadOnlyList<IRuleProviderFactory> ruleProviderFactories,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurations)
         {
             var ruleProviders = new List<IRuleProvider>(ruleProviderFactories.Count);
             foreach (IRuleProviderFactory ruleProviderFactory in ruleProviderFactories)
             {
-                ruleProviders.Add(ruleProviderFactory.CreateRuleProvider(ruleComponentProvider));
+                ruleProviders.Add(ruleProviderFactory.CreateRuleProvider(ruleComponentProvider, ruleConfigurations));
             }
 
             return new ScriptAnalyzer(executorFactory, ruleProviders);

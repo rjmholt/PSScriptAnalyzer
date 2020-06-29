@@ -1,31 +1,33 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Rules;
-using System;
 using System.Collections.Generic;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
     public class PSModuleRuleProvider : IRuleProvider
     {
-        private readonly string _module;
+        private readonly IReadOnlyList<PSCommandRule> _rules;
 
-        public PSModuleRuleProvider(string module)
+        public PSModuleRuleProvider(IReadOnlyList<PSCommandRule> rules)
         {
-            _module = module;
+            _rules = rules;
         }
 
         public IEnumerable<RuleInfo> GetRuleInfos()
         {
-            throw new NotImplementedException();
+            foreach (PSCommandRule rule in _rules)
+            {
+                yield return rule.RuleInfo;
+            }
         }
 
         public IEnumerable<ScriptRule> GetScriptRules()
         {
-            throw new NotImplementedException();
+            return _rules;
         }
 
         public void ReturnRule(Rule rule)
         {
-            throw new NotImplementedException();
+            // No implementation required
         }
     }
 }

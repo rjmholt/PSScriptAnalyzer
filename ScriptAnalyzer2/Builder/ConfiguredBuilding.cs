@@ -1,11 +1,11 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Execution;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
+using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
 using Microsoft.PowerShell.ScriptAnalyzer.Utils;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
+using System.Management.Automation;
+using SMA = System.Management.Automation;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 {
@@ -13,8 +13,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
     {
         public static ScriptAnalyzer CreateScriptAnalyzer(this IScriptAnalyzerConfiguration configuration)
         {
-            var analyzerBuilder = new ScriptAnalyzerBuilder()
-                .WithRuleComponentProvider(new RuleComponentProviderBuilder().Build());
+            var analyzerBuilder = new ScriptAnalyzerBuilder();
 
             switch (configuration.BuiltinRules ?? BuiltinRulePreference.Default)
             {
@@ -42,11 +41,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
                 {
                     string extension = Path.GetExtension(rulePath);
 
+                    // TODO: Deal with relative paths
+
                     if (extension.CaseInsensitiveEquals(".dll"))
                     {
-                        analyzerBuilder.AddRuleProviderFactory(TypeRuleProviderFactory.FromAssemblyFile(configuration.RuleConfiguration, rulePath));
-                        break;
+                        analyzerBuilder.AddRuleProviderFactory(TypeRuleProviderFactory.FromAssemblyFile(rulePath));
+                        continue;
                     }
+
+                    analyzerBuilder.AddRuleProviderFactory(new PSModuleRuleProviderFactory(rulePath));
                 }
             }
 

@@ -34,7 +34,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 
         public IRuleProviderFactory Build()
         {
-            return new BuiltinRuleProviderFactory(_ruleConfiguration);
+            return new BuiltinRuleProviderFactory();
         }
     }
 }

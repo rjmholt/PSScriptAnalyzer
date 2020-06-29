@@ -1,4 +1,5 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Builtin;
+using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
 using Microsoft.PowerShell.ScriptAnalyzer.Execution;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using System;
@@ -14,9 +15,38 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 
         private RuleComponentProvider _ruleComponentProvider;
 
+        private Dictionary<string, IRuleConfiguration> _ruleConfigurations;
+
         public ScriptAnalyzerBuilder()
         {
             _ruleProviderFactories = new List<IRuleProviderFactory>();
+        }
+
+        public ScriptAnalyzerBuilder WithRuleConfiguration(string rule, IRuleConfiguration configuration)
+        {
+            if (_ruleConfigurations == null)
+            {
+                _ruleConfigurations = new Dictionary<string, IRuleConfiguration>();
+            }
+
+            _ruleConfigurations[rule] = configuration;
+
+            return this;
+        }
+
+        public ScriptAnalyzerBuilder WithRuleConfiguration(IReadOnlyDictionary<string, IRuleConfiguration> configurations)
+        {
+            if (_ruleConfigurations == null)
+            {
+                _ruleConfigurations = new Dictionary<string, IRuleConfiguration>();
+            }
+
+            foreach (KeyValuePair<string, IRuleConfiguration> configuration in configurations)
+            {
+                _ruleConfigurations[configuration.Key] = configuration.Value;
+            }
+
+            return this;
         }
 
         public ScriptAnalyzerBuilder WithRuleExecutorFactory(IRuleExecutorFactory ruleExecutorFactory)
@@ -48,7 +78,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
         public ScriptAnalyzerBuilder AddBuiltinRules()
         {
             _ruleProviderFactories.Add(
-                new BuiltinRuleProviderFactory(Default.RuleConfiguration));
+                new BuiltinRuleProviderFactory());
             return this;
         }
 
@@ -62,7 +92,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 
         public ScriptAnalyzer Build()
         {
-            return ScriptAnalyzer.Create(_ruleComponentProvider, _ruleExecutorFactory, _ruleProviderFactories);
+            return ScriptAnalyzer.Create(
+                _ruleComponentProvider ?? Default.RuleComponentProvider,
+                _ruleExecutorFactory ?? Default.RuleExecutorFactory,
+                _ruleProviderFactories,
+                _ruleConfigurations ?? Default.RuleConfiguration);
         }
     }
 }

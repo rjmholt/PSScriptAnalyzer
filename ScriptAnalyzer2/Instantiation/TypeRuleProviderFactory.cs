@@ -10,17 +10,15 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
     public class TypeRuleProviderFactory : IRuleProviderFactory
     {
         public static TypeRuleProviderFactory FromAssemblyFile(
-            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             string assemblyPath)
         {
-            return FromAssembly(ruleConfigurationCollection, Assembly.LoadFile(assemblyPath));
+            return FromAssembly(Assembly.LoadFile(assemblyPath));
         }
 
         public static TypeRuleProviderFactory FromAssembly(
-            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             Assembly ruleAssembly)
         {
-            return new TypeRuleProviderFactory(ruleConfigurationCollection, ruleAssembly.GetExportedTypes());
+            return new TypeRuleProviderFactory(ruleAssembly.GetExportedTypes());
         }
 
         private readonly IReadOnlyDictionary<string, IRuleConfiguration> _ruleConfigurationCollection;
@@ -28,16 +26,16 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
         private readonly IReadOnlyList<Type> _types;
 
         public TypeRuleProviderFactory(
-            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection,
             IReadOnlyList<Type> types)
         {
-            _ruleConfigurationCollection = ruleConfigurationCollection;
             _types = types;
         }
 
-        public IRuleProvider CreateRuleProvider(RuleComponentProvider ruleComponentProvider)
+        public IRuleProvider CreateRuleProvider(
+            RuleComponentProvider ruleComponentProvider,
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfiguration)
         {
-            return new TypeRuleProvider(GetRuleFactoriesFromTypes(_ruleConfigurationCollection, ruleComponentProvider, _types));
+            return new TypeRuleProvider(GetRuleFactoriesFromTypes(ruleConfiguration, ruleComponentProvider, _types));
         }
         
         private static IReadOnlyDictionary<RuleInfo, TypeRuleFactory<ScriptRule>> GetRuleFactoriesFromTypes(
