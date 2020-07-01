@@ -3,6 +3,7 @@ using Microsoft.PowerShell.ScriptAnalyzer.Execution;
 using Microsoft.PowerShell.ScriptAnalyzer.Instantiation;
 using Microsoft.PowerShell.ScriptAnalyzer.Runtime;
 using Microsoft.PowerShell.ScriptAnalyzer.Utils;
+using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using SMA = System.Management.Automation;
@@ -11,6 +12,12 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 {
     public static class ConfiguredBuilding
     {
+        private static readonly IReadOnlyList<string> s_moduleExtensions = new[]
+        {
+            ".psd1",
+            ".psm1"
+        };
+
         public static ScriptAnalyzer CreateScriptAnalyzer(this IScriptAnalyzerConfiguration configuration)
         {
             var analyzerBuilder = new ScriptAnalyzerBuilder();
@@ -37,19 +44,46 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 
             if (configuration.RulePaths != null)
             {
-                foreach (string rulePath in configuration.RulePaths)
+                foreach (string configuredRulePath in configuration.RulePaths)
                 {
+                    string rulePath = Path.IsPathRooted(configuredRulePath)
+                        ? configuredRulePath
+                        : Path.GetFullPath(
+                            Path.Combine(configuration.BasePath, configuredRulePath));
+
                     string extension = Path.GetExtension(rulePath);
 
-                    // TODO: Deal with relative paths
-
+                    // DLL with rule implementations in it
                     if (extension.CaseInsensitiveEquals(".dll"))
                     {
                         analyzerBuilder.AddRuleProviderFactory(TypeRuleProviderFactory.FromAssemblyFile(rulePath));
                         continue;
                     }
 
-                    analyzerBuilder.AddRuleProviderFactory(new PSModuleRuleProviderFactory(rulePath));
+                    // Module within a directory
+                    if (string.IsNullOrEmpty(extension))
+                    {
+                        string dirName = Path.GetFileName(rulePath);
+
+                        foreach (string moduleExtension in s_moduleExtensions)
+                        {
+                            if (File.Exists(Path.Combine(rulePath, $"{dirName}{moduleExtension}")))
+                            {
+                                analyzerBuilder.AddRuleProviderFactory(new PSModuleRuleProviderFactory(rulePath));
+                            }
+                        }
+
+                        // TODO: Error about not being valid
+
+                        continue;
+                    }
+
+                    // Bare module
+                    if (extension.CaseInsensitiveEquals(".psd1") || extension.CaseInsensitiveEquals(".psm1"))
+                    {
+                        analyzerBuilder.AddRuleProviderFactory(new PSModuleRuleProviderFactory(rulePath));
+                        continue;
+                    }
                 }
             }
 

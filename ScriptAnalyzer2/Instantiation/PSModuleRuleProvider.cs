@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public class PSModuleRuleProvider : IRuleProvider
+    internal class PSModuleRuleProvider : IRuleProvider
     {
         private readonly IReadOnlyList<PSCommandRule> _rules;
 

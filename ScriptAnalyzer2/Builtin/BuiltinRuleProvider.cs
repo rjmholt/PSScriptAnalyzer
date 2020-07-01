@@ -45,7 +45,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
         {
             return new RuleComponentProviderBuilder()
                 .AddSingleton<IPowerShellCommandDatabase>(InstantiatePowerShellCommandDatabase)
-                .AddSingleton<PowerShellExecutor>(PowerShellExecutor.Create)
+                .AddSingleton<IPowerShellRuleExecutor>(PowerShellExecutor.CreateForPSModuleRules)
                 .Build();
         }
 

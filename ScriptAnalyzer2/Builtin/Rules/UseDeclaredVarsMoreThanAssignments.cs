@@ -176,7 +176,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             ScriptBlockAst scriptBlockAst,
             Dictionary<string, AssignmentStatementAst> assignmentsDictionary_OrdinalIgnoreCase)
         {
-            throw new NotImplementedException();
+            return;
 
             /*
             IReadOnlyList<string> getVariableCmdletNamesAndAliases = null; //Helper.Instance.CmdletNameAndAliases("Get-Variable");

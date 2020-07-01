@@ -1,7 +1,5 @@
 ﻿using Microsoft.PowerShell.ScriptAnalyzer.Builder;
 using Microsoft.PowerShell.ScriptAnalyzer.Configuration;
-using System;
-using System.Collections.Concurrent;
 using System.Management.Automation;
 
 #if !CORECLR
@@ -10,11 +8,9 @@ using Microsoft.PowerShell.ScriptAnalyzer.Internal;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 {
-    [Cmdlet(VerbsLifecycle.Invoke, "ScriptAnalyzer2")]
-    public class InvokeScriptAnalyzerCommand : Cmdlet
+    [Cmdlet(VerbsLifecycle.Invoke, "ScriptAnalyzer")]
+    public class InvokeScriptAnalyzerCommand : PSCmdlet
     {
-        private static readonly ConcurrentDictionary<ParameterSetting, ScriptAnalyzer> s_configuredScriptAnalyzers = new ConcurrentDictionary<ParameterSetting, ScriptAnalyzer>();
-
         private ScriptAnalyzer _scriptAnalyzer;
 
         [ValidateNotNullOrEmpty]
@@ -33,7 +29,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
 
         protected override void BeginProcessing()
         {
-            _scriptAnalyzer = GetScriptAnalyzer();
+            ConfigurationPath = GetUnresolvedProviderPathFromPSPath(ConfigurationPath);
+            _scriptAnalyzer = CreateScriptAnalyzer();
         }
 
         protected override void ProcessRecord()
@@ -63,44 +60,17 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Commands
             }
         }
 
-        private ScriptAnalyzer GetScriptAnalyzer()
-        {
-            var parameters = new ParameterSetting(this);
-            return s_configuredScriptAnalyzers.GetOrAdd(parameters, CreateScriptAnalyzerWithParameters);
-        }
-
-        private ScriptAnalyzer CreateScriptAnalyzerWithParameters(ParameterSetting parameters)
+        private ScriptAnalyzer CreateScriptAnalyzer()
         {
             var configBuilder = new ScriptAnalyzerConfigurationBuilder()
                 .WithBuiltinRuleSet(BuiltinRulePreference.Default);
 
-            if (parameters.ConfigurationPath != null)
+            if (ConfigurationPath != null)
             {
-                configBuilder.AddConfigurationFile(parameters.ConfigurationPath);
+                configBuilder.AddConfigurationFile(ConfigurationPath);
             }
 
             return configBuilder.Build().CreateScriptAnalyzer();
-        }
-
-        private struct ParameterSetting
-        {
-            public ParameterSetting(InvokeScriptAnalyzerCommand command)
-            {
-                ConfigurationPath = command.ConfigurationPath;
-            }
-
-            public string ConfigurationPath { get; }
-
-            public override int GetHashCode()
-            {
-#if CORECLR
-                return HashCode.Combine(ConfigurationPath);
-#else
-                return HashCodeCombinator.Create()
-                    .Add(ConfigurationPath)
-                    .GetHashCode();
-#endif
-            }
         }
     }
 }

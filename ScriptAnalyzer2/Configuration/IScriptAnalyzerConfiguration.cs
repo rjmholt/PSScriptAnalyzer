@@ -28,5 +28,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
         IReadOnlyList<string> RulePaths { get; }
 
         IReadOnlyDictionary<string, IRuleConfiguration> RuleConfiguration { get; }
+
+        string BasePath { get; }
     }
 }

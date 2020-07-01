@@ -1,0 +1,6 @@
+{
+  "BuiltinRulePreference": "None",
+  "RulePaths": [
+    "../Tests/ScriptAnalyzer2.Test/assets/mod"
+  ]
+}

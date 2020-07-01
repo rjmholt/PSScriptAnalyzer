@@ -17,10 +17,18 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
 
         private RuleExecutionMode? _executionMode;
 
+        private string _basePath;
+
         public ScriptAnalyzerConfigurationBuilder()
         {
             _rulePaths = new List<string>();
             _ruleConfigurations = new Dictionary<string, IRuleConfiguration>();
+        }
+
+        public ScriptAnalyzerConfigurationBuilder WithBasePath(string path)
+        {
+            _basePath = path;
+            return this;
         }
 
         public ScriptAnalyzerConfigurationBuilder WithBuiltinRuleSet(BuiltinRulePreference builtinRulePreference)
@@ -95,8 +103,17 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
                 WithRuleExecutionMode(configuration.RuleExecution.Value);
             }
 
-            AddRulePaths(configuration.RulePaths);
-            AddRuleConfigurations(configuration.RuleConfiguration);
+            if (configuration.RulePaths != null)
+            {
+                AddRulePaths(configuration.RulePaths);
+            }
+
+            if (configuration.RuleConfiguration != null)
+            {
+                AddRuleConfigurations(configuration.RuleConfiguration);
+            }
+
+            _basePath = configuration.BasePath;
 
             return this;
         }
@@ -124,7 +141,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
 
         public IScriptAnalyzerConfiguration Build()
         {
-            return new MemoryScriptAnalyzerConfiguration(_builtinRulePreference, _executionMode, _rulePaths, _ruleConfigurations);
+            return new MemoryScriptAnalyzerConfiguration(_builtinRulePreference, _executionMode, _rulePaths, _ruleConfigurations, _basePath);
         }
     }
 
@@ -134,12 +151,14 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
             BuiltinRulePreference? builtinRulePreference,
             RuleExecutionMode? ruleExecutionMode,
             IReadOnlyList<string> rulePaths,
-            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurations)
+            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurations,
+            string basePath)
         {
             BuiltinRules = builtinRulePreference;
             RuleExecution = ruleExecutionMode;
             RulePaths = rulePaths;
             RuleConfiguration = ruleConfigurations;
+            BasePath = basePath;
         }
 
         public IReadOnlyList<string> RulePaths { get; }
@@ -149,5 +168,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration
         public IReadOnlyDictionary<string, IRuleConfiguration> RuleConfiguration { get; }
 
         public BuiltinRulePreference? BuiltinRules { get; }
+
+        public string BasePath { get; }
     }
 }

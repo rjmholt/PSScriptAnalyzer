@@ -21,8 +21,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
             return new TypeRuleProviderFactory(ruleAssembly.GetExportedTypes());
         }
 
-        private readonly IReadOnlyDictionary<string, IRuleConfiguration> _ruleConfigurationCollection;
-
         private readonly IReadOnlyList<Type> _types;
 
         public TypeRuleProviderFactory(

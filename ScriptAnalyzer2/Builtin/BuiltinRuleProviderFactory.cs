@@ -8,9 +8,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builtin
 {
     internal class BuiltinRuleProviderFactory : TypeRuleProviderFactory
     {
-        public BuiltinRuleProviderFactory(
-            IReadOnlyDictionary<string, IRuleConfiguration> ruleConfigurationCollection)
-            : base(ruleConfigurationCollection ?? Default.RuleConfiguration, BuiltinRules.DefaultRules)
+        public BuiltinRuleProviderFactory()
+            : base(BuiltinRules.DefaultRules)
         {
         }
     }

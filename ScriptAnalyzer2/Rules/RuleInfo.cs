@@ -11,7 +11,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Rules
     {
         private static readonly ConcurrentDictionary<RuleAttribute, RuleInfo> s_ruleInfoCache = new ConcurrentDictionary<RuleAttribute, RuleInfo>();
 
-        public static bool TryGetFromRuleType(Type ruleType, out RuleInfo ruleInfo)
+        internal static bool TryGetFromRuleType(Type ruleType, out RuleInfo ruleInfo)
         {
             return TryGetFromRuleType(ruleType, SourceType.Assembly, out ruleInfo);
         }

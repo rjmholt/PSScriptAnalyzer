@@ -8,33 +8,6 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Builder
 {
     public abstract class RuleComponentProvider
     {
-        public PowerShellExecutor PowerShellExecutor
-        {
-            get
-            {
-                if (TryGetComponentInstance(out PowerShellExecutor executor))
-                {
-                    return executor;
-                }
-
-                // TODO: Throw appropriate exception here
-                return null;
-            }
-        }
-
-        public IPowerShellCommandDatabase CommandDatabase
-        {
-            get
-            {
-                if (TryGetComponentInstance(out IPowerShellCommandDatabase commandDatabase))
-                {
-                    return commandDatabase;
-                }
-
-                return null;
-            }
-        }
-
         public bool TryGetComponentInstance<TComponent>(out TComponent component)
         {
             if (!TryGetComponentInstance(typeof(TComponent), out object componentObj))

@@ -1,53 +1,45 @@
-﻿using Newtonsoft.Json.Bson;
-using System;
-using System.Collections.Generic;
+﻿using Microsoft.PowerShell.ScriptAnalyzer.Utils;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using SMA = System.Management.Automation;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Execution
 {
-    public class PowerShellExecutor : IDisposable
+    internal interface IPowerShellRuleExecutor
     {
-        public static PowerShellExecutor Create()
+        Collection<T> InvokeCommand<T>(PSCommand command);
+    }
+
+    public class PowerShellExecutor : IPowerShellRuleExecutor
+    {
+        internal static PowerShellExecutor CreateForPSModuleRules()
         {
-            var pwsh = SMA.PowerShell.Create(RunspaceMode.NewRunspace);
+            var pwsh = SMA.PowerShell.Create();
+            pwsh.RunspacePool = RunspaceFactory.CreateRunspacePool(minRunspaces: 1, maxRunspaces: 1);
+            pwsh.RunspacePool.Open();
+            pwsh.AddCommand("Import-Module").AddParameter("Name", PssaModule.RootPath).Invoke();
             return new PowerShellExecutor(pwsh);
         }
 
         private readonly SMA.PowerShell _pwsh;
-
-        private readonly object _lock;
 
         private PowerShellExecutor(SMA.PowerShell pwsh)
         {
             _pwsh = pwsh;
         }
 
-        public Collection<T> InvokePowerShell<T>(PSCommand command)
+        public Collection<T> InvokeCommand<T>(PSCommand command)
         {
-            lock (_lock)
+            try
             {
-                try
-                {
-                    _pwsh.Commands = command;
-                    return _pwsh.Invoke<T>();
-                }
-                finally
-                {
-                    _pwsh.Commands.Clear();
-                }
+                _pwsh.Commands = command;
+                return _pwsh.Invoke<T>();
             }
-        }
-
-        public Collection<PSObject> InvokePowerShell(PSCommand command)
-        {
-            return InvokePowerShell<PSObject>(command);
-        }
-
-        public void Dispose()
-        {
-            ((IDisposable)_pwsh).Dispose();
+            finally
+            {
+                _pwsh.Commands.Clear();
+            }
         }
     }
 }

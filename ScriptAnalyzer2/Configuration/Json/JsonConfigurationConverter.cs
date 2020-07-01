@@ -21,15 +21,19 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
         {
             JObject configObject = JObject.Load(reader);
 
-            var ruleConfigurationsObject = (JObject)configObject[ConfigurationKeys.RuleConfigurations];
-            var configDictionary = new Dictionary<string, JsonRuleConfiguration>(ruleConfigurationsObject.Count, StringComparer.OrdinalIgnoreCase);
-            foreach (KeyValuePair<string, JToken> configEntry in ruleConfigurationsObject)
+            Dictionary<string, JsonRuleConfiguration> configDictionary = null;
+            if (configObject.ContainsKey(ConfigurationKeys.RuleConfigurations))
             {
-                var ruleConfigObject = (JObject)configEntry.Value;
+                var ruleConfigurationsObject = (JObject)configObject[ConfigurationKeys.RuleConfigurations];
+                configDictionary = new Dictionary<string, JsonRuleConfiguration>(ruleConfigurationsObject.Count, StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, JToken> configEntry in ruleConfigurationsObject)
+                {
+                    var ruleConfigObject = (JObject)configEntry.Value;
 
-                var commonConfiguration = ruleConfigObject[ConfigurationKeys.CommonConfiguration]?.ToObject<CommonConfiguration>() ?? CommonConfiguration.Default;
+                    var commonConfiguration = ruleConfigObject[ConfigurationKeys.CommonConfiguration]?.ToObject<CommonConfiguration>() ?? CommonConfiguration.Default;
 
-                configDictionary[configEntry.Key] = new JsonRuleConfiguration(commonConfiguration, (JObject)configEntry.Value);
+                    configDictionary[configEntry.Key] = new JsonRuleConfiguration(commonConfiguration, (JObject)configEntry.Value);
+                }
             }
 
             return new JsonScriptAnalyzerConfiguration(

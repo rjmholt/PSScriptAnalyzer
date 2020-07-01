@@ -11,9 +11,11 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
     {
         private static readonly JsonConfigurationConverter s_jsonConfigurationConverter = new JsonConfigurationConverter();
 
-        public static JsonScriptAnalyzerConfiguration FromString(string jsonString)
+        public static JsonScriptAnalyzerConfiguration FromString(string jsonString, string filePath)
         {
-            return JsonConvert.DeserializeObject<JsonScriptAnalyzerConfiguration>(jsonString, s_jsonConfigurationConverter);
+            var configuration = JsonConvert.DeserializeObject<JsonScriptAnalyzerConfiguration>(jsonString, s_jsonConfigurationConverter);
+            configuration.BasePath = Path.GetDirectoryName(filePath);
+            return configuration;
         }
 
         public static JsonScriptAnalyzerConfiguration FromFile(string filePath)
@@ -27,7 +29,9 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
             using (var streamReader = new StreamReader(fileStream))
             using (var jsonReader = new JsonTextReader(streamReader))
             {
-                return serializer.Deserialize<JsonScriptAnalyzerConfiguration>(jsonReader);
+                var configuration = serializer.Deserialize<JsonScriptAnalyzerConfiguration>(jsonReader);
+                configuration.BasePath = Path.GetDirectoryName(filePath);
+                return configuration;
             }
         }
 
@@ -51,6 +55,8 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Configuration.Json
         public IReadOnlyList<string> RulePaths { get; }
 
         public IReadOnlyDictionary<string, IRuleConfiguration> RuleConfiguration { get; }
+
+        public string BasePath { get; private set; }
     }
 
     public class JsonRuleConfiguration : LazyConvertedRuleConfiguration<JObject>

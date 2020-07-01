@@ -11,7 +11,7 @@ using System.Text;
 
 namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
 {
-    public class PSCommandRule : ScriptRule
+    internal class PSCommandRule : ScriptRule
     {
         private static readonly Func<CommandInfo, Command> s_createCommandFromCommandInfo;
 
@@ -24,16 +24,16 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
                         BindingFlags.Instance | BindingFlags.NonPublic,
                         binder: null,
                         types: new[] { typeof(CommandInfo) },
-                        modifiers: null)), commandInfoParameter).Compile();
+                        modifiers: null), commandInfoParameter), commandInfoParameter).Compile();
         }
 
         private readonly CommandInfo _command;
 
-        private readonly PowerShellExecutor _executor;
+        private readonly IPowerShellRuleExecutor _executor;
 
         public PSCommandRule(
             RuleInfo ruleInfo,
-            PowerShellExecutor executor,
+            IPowerShellRuleExecutor executor,
             CommandInfo commandInfo)
             : base(ruleInfo)
         {
@@ -49,7 +49,7 @@ namespace Microsoft.PowerShell.ScriptAnalyzer.Instantiation
                 .AddParameter("Tokens", tokens)
                 .AddParameter("ScriptPath", scriptPath);
 
-            foreach (PSObject output in _executor.InvokePowerShell<PSObject>(command))
+            foreach (PSObject output in _executor.InvokeCommand<PSObject>(command))
             {
                 if (output?.BaseObject is ScriptDiagnostic diagnostic)
                 {
