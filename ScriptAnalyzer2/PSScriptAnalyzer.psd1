@@ -48,7 +48,7 @@ FormatsToProcess = @()
 FunctionsToExport = @()
 
 # Cmdlets to export from this module
-CmdletsToExport = @('Get-ScriptAnalyzerRule', 'Invoke-ScriptAnalyzer', 'Write-Diagnostic')
+CmdletsToExport = @('Get-ScriptAnalyzerRule', 'Invoke-ScriptAnalyzer2', 'Write-Diagnostic')
 
 # Variables to export from this module
 VariablesToExport = @()
