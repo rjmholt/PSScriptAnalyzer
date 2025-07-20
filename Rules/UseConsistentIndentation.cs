@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 using System;
@@ -133,7 +133,13 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             var currentIndenationLevelIncreaseDueToPipelines = 0;
             var onNewLine = true;
             var pipelineAsts = ast.FindAll(testAst => testAst is PipelineAst && (testAst as PipelineAst).PipelineElements.Count > 1, true).ToList();
-            int minimumPipelineAstIndex = 0;
+            /*
+                When an LParen and LBrace are on the same line, it can lead to too much de-indentation.
+                In order to prevent the RParen code from de-indenting too much, we keep a stack of when we skipped the indentation
+                caused by tokens that require a closing RParen (which are LParen, AtParen and DollarParen).
+            */
+            var lParenSkippedIndentation = new Stack<bool>();
+            
             for (int tokenIndex = 0; tokenIndex < tokens.Length; tokenIndex++)
             {
                 var token = tokens[tokenIndex];
@@ -146,11 +152,29 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 switch (token.Kind)
                 {
                     case TokenKind.AtCurly:
-                    case TokenKind.AtParen:
-                    case TokenKind.LParen:
                     case TokenKind.LCurly:
-                    case TokenKind.DollarParen:
                         AddViolation(token, indentationLevel++, diagnosticRecords, ref onNewLine);
+                        break;
+
+                    case TokenKind.DollarParen:
+                    case TokenKind.AtParen:
+                        lParenSkippedIndentation.Push(false);
+                        AddViolation(token, indentationLevel++, diagnosticRecords, ref onNewLine);
+                        break;
+
+                    case TokenKind.LParen:
+                        AddViolation(token, indentationLevel, diagnosticRecords, ref onNewLine);
+                        // When a line starts with a parenthesis and it is not the last non-comment token of that line,
+                        // then indentation does not need to be increased.
+                        if ((tokenIndex == 0 || tokens[tokenIndex - 1].Kind == TokenKind.NewLine) &&
+                            NextTokenIgnoringComments(tokens, tokenIndex)?.Kind != TokenKind.NewLine)
+                        {
+                            onNewLine = false;
+                            lParenSkippedIndentation.Push(true);
+                            break;
+                        }
+                        lParenSkippedIndentation.Push(false);
+                        indentationLevel++;
                         break;
 
                     case TokenKind.Pipe:
@@ -181,6 +205,20 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                         break;
 
                     case TokenKind.RParen:
+                        bool matchingLParenIncreasedIndentation = false;
+                        if (lParenSkippedIndentation.Count > 0)
+                        {
+                            matchingLParenIncreasedIndentation = lParenSkippedIndentation.Pop();
+                        }
+                        if (matchingLParenIncreasedIndentation)
+                        {
+                            onNewLine = false;
+                            break;
+                        }
+                        indentationLevel = ClipNegative(indentationLevel - 1);
+                        AddViolation(token, indentationLevel, diagnosticRecords, ref onNewLine);
+                        break;
+
                     case TokenKind.RCurly:
                         indentationLevel = ClipNegative(indentationLevel - 1);
                         AddViolation(token, indentationLevel, diagnosticRecords, ref onNewLine);
@@ -220,16 +258,22 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                                 }
                             }
 
-                            bool lineHasPipelineBeforeToken = LineHasPipelineBeforeToken(tokens, tokenIndex, token);
+                            if (pipelineIndentationStyle == PipelineIndentationStyle.None && PreviousLineEndedWithPipe(tokens, tokenIndex, token))
+                            {
+                                onNewLine = false;
+                                continue;
+                            }
 
+                            bool lineHasPipelineBeforeToken = LineHasPipelineBeforeToken(tokens, tokenIndex, token);
                             AddViolation(token, tempIndentationLevel, diagnosticRecords, ref onNewLine, lineHasPipelineBeforeToken);
                         }
                         break;
                 }
 
-                if (pipelineIndentationStyle == PipelineIndentationStyle.None) { break; }
+                if (pipelineIndentationStyle == PipelineIndentationStyle.None) { continue; }
+
                 // Check if the current token matches the end of a PipelineAst
-                PipelineAst matchingPipeLineAstEnd = MatchingPipelineAstEnd(pipelineAsts, ref minimumPipelineAstIndex, token);
+                PipelineAst matchingPipeLineAstEnd = MatchingPipelineAstEnd(pipelineAsts, token);
                 if (matchingPipeLineAstEnd == null)
                 {
                     continue;
@@ -254,6 +298,29 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             return diagnosticRecords;
         }
 
+        private static Token NextTokenIgnoringComments(Token[] tokens, int startIndex)
+        {
+            if (startIndex >= tokens.Length - 1)
+            {
+                return null;
+            }
+            
+            for (int i = startIndex + 1; i < tokens.Length; i++)
+            {
+                switch (tokens[i].Kind)
+                {
+                    case TokenKind.Comment:
+                        continue;
+
+                    default:
+                        return tokens[i];
+                }
+            }
+            
+            // We've run out of tokens
+            return null;
+        }
+        
         private static bool PipelineIsFollowedByNewlineOrLineContinuation(Token[] tokens, int startIndex)
         {
             if (startIndex >= tokens.Length - 1)
@@ -281,6 +348,35 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             }
             
             // We've run out of tokens but haven't seen a newline
+            return false;
+        }
+
+        private static bool PreviousLineEndedWithPipe(Token[] tokens, int tokenIndex, Token token)
+        {
+            if (tokenIndex < 2 || token.Extent.StartLineNumber == 1)
+            {
+                return false;
+            }
+
+            int searchIndex = tokenIndex - 2;
+            int searchLine;
+            do
+            {
+                searchLine = tokens[searchIndex].Extent.StartLineNumber;
+                if (tokens[searchIndex].Kind == TokenKind.Comment)
+                {
+                    searchIndex--;
+                }
+                else if (tokens[searchIndex].Kind == TokenKind.Pipe)
+                {
+                    return true;
+                }
+                else
+                {
+                    break;
+                }
+            } while (searchLine == token.Extent.StartLineNumber - 1 && searchIndex >= 0);
+
             return false;
         }
 
@@ -316,10 +412,10 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
             return lastPipeOnFirstLineWithPipeUsage;
         }
 
-        private static PipelineAst MatchingPipelineAstEnd(List<Ast> pipelineAsts, ref int minimumPipelineAstIndex, Token token)
+        private static PipelineAst MatchingPipelineAstEnd(List<Ast> pipelineAsts, Token token)
         {
             PipelineAst matchingPipeLineAstEnd = null;
-            for (int i = minimumPipelineAstIndex; i < pipelineAsts.Count; i++)
+            for (int i = 0; i < pipelineAsts.Count; i++)
             {
                 if (pipelineAsts[i].Extent.EndScriptPosition.LineNumber > token.Extent.EndScriptPosition.LineNumber)
                 {
@@ -329,7 +425,6 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 if (PositionIsEqual(pipelineAsts[i].Extent.EndScriptPosition, token.Extent.EndScriptPosition))
                 {
                     matchingPipeLineAstEnd = pipelineAsts[i] as PipelineAst;
-                    minimumPipelineAstIndex = i;
                     break;
                 }
             }
@@ -467,11 +562,6 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
         private static int ClipNegative(int x)
         {
             return x > 0 ? x : 0;
-        }
-
-        private int GetIndentationColumnNumber(int indentationLevel)
-        {
-            return GetIndentation(indentationLevel) + 1;
         }
 
         private int GetIndentation(int indentationLevel)

@@ -15,17 +15,15 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
     internal class CommandInfoCache : IDisposable
     {
         private readonly ConcurrentDictionary<CommandLookupKey, Lazy<CommandInfo>> _commandInfoCache;
-        private readonly Helper _helperInstance;
         private readonly RunspacePool _runspacePool;
         private bool disposed = false;
 
         /// <summary>
         /// Create a fresh command info cache instance.
         /// </summary>
-        public CommandInfoCache(Helper pssaHelperInstance)
+        public CommandInfoCache()
         {
             _commandInfoCache = new ConcurrentDictionary<CommandLookupKey, Lazy<CommandInfo>>();
-            _helperInstance = pssaHelperInstance;
             _runspacePool = RunspaceFactory.CreateRunspacePool(1, 10);
             _runspacePool.Open();
         }
@@ -57,8 +55,9 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
         /// </summary>
         /// <param name="commandName">Name of the command to get a commandinfo object for.</param>
         /// <param name="commandTypes">What types of command are needed. If omitted, all types are retrieved.</param>
+        /// <param name="bypassCache">When needed due to runspace affinity problems of some PowerShell objects.</param>
         /// <returns></returns>
-        public CommandInfo GetCommandInfo(string commandName, CommandTypes? commandTypes = null)
+        public CommandInfo GetCommandInfo(string commandName, CommandTypes? commandTypes = null, bool bypassCache = false)
         {
             if (string.IsNullOrWhiteSpace(commandName))
             {
@@ -66,6 +65,10 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             }
 
             var key = new CommandLookupKey(commandName, commandTypes);
+            if (bypassCache)
+            {
+                return GetCommandInfoInternal(commandName, commandTypes);
+            }
             // Atomically either use PowerShell to query a command info object, or fetch it from the cache
             return _commandInfoCache.GetOrAdd(key, new Lazy<CommandInfo>(() => GetCommandInfoInternal(commandName, commandTypes))).Value;
         }

@@ -1,10 +1,15 @@
-﻿$testRootDirectory = Split-Path -Parent $PSScriptRoot
-Import-Module (Join-Path $testRootDirectory 'PSScriptAnalyzerTestHelper.psm1')
+﻿# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
-$violationMessage = "The variable 'declaredVar2' is assigned but never used."
-$violationName = "PSUseDeclaredVarsMoreThanAssignments"
-$violations = Invoke-ScriptAnalyzer $PSScriptRoot\UseDeclaredVarsMoreThanAssignments.ps1 | Where-Object {$_.RuleName -eq $violationName}
-$noViolations = Invoke-ScriptAnalyzer $PSScriptRoot\UseDeclaredVarsMoreThanAssignmentsNoViolations.ps1 | Where-Object {$_.RuleName -eq $violationName}
+BeforeAll {
+    $testRootDirectory = Split-Path -Parent $PSScriptRoot
+    Import-Module (Join-Path $testRootDirectory 'PSScriptAnalyzerTestHelper.psm1')
+
+    $violationMessage = "The variable 'declaredVar2' is assigned but never used."
+    $violationName = "PSUseDeclaredVarsMoreThanAssignments"
+    $violations = Invoke-ScriptAnalyzer $PSScriptRoot\UseDeclaredVarsMoreThanAssignments.ps1 | Where-Object {$_.RuleName -eq $violationName}
+    $noViolations = Invoke-ScriptAnalyzer $PSScriptRoot\UseDeclaredVarsMoreThanAssignmentsNoViolations.ps1 | Where-Object {$_.RuleName -eq $violationName}
+}
 
 Describe "UseDeclaredVarsMoreThanAssignments" {
     Context "When there are violations" {
@@ -53,6 +58,54 @@ function MyFunc2() {
             Should -Be 0
         }
 
+        It "does not flag `$PSNativeCommandArgumentPassing variable" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$PSNativeCommandArgumentPassing=None' -IncludeRule $violationName | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "does not flag global variable" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$global:x=$null' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "does not flag global variable in block" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$global:x=$null;{$global:x=$null}' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "does not flag env variable" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$env:x=$null' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "does not flag env variable in block" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$env:x=$null;{$env:x=$null}' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "does not flag script variable" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$script:x=$null' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "does not flag script variable in block" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$script:x=$null;{$script:x=$null}' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 0
+        }
+
+        It "flags private variable" {
+            Invoke-ScriptAnalyzer -ScriptDefinition '$private:x=$null' -IncludeRule $violationName  | `
+            Get-Count | `
+            Should -Be 1
+        }
+
         It "flags a variable that is defined twice but never used" {
             Invoke-ScriptAnalyzer -ScriptDefinition '$myvar=1;$myvar=2' -IncludeRule $violationName | `
             Get-Count | `
@@ -67,6 +120,11 @@ function MyFunc2() {
     }
 
     Context "When there are no violations" {
+        It "No warning is issued for assignment without use of preference variable ErrorView" {
+            $results = Invoke-ScriptAnalyzer -ScriptDefinition '$ErrorView = NormalView'
+            $results.Count | Should -Be 0
+        }
+
         It "returns no violations" {
             $noViolations.Count | Should -Be 0
         }

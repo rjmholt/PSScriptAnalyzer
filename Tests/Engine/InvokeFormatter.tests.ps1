@@ -1,11 +1,29 @@
-$testRootDirectory = Split-Path -Parent $PSScriptRoot
-Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+BeforeAll {
+    $testRootDirectory = Split-Path -Parent $PSScriptRoot
+    Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+}
 
 Describe "Invoke-Formatter Cmdlet" {
     Context "Cmdlet cleans up and has no knock on effect" {
         It "Invoke-Formatter has knock on effect on Invoke-ScriptAnalyzer" {
             Invoke-Formatter 'foo'
             Invoke-ScriptAnalyzer -ScriptDefinition 'gci' | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'Accept Value from Pipeline' {
+        It 'Value from Pipeline' {
+            'foo' | Invoke-Formatter | Should -Be 'foo'
+        }
+        It 'Value from Pipeline by Property Name with just the mandatory ScriptDefinition parameter' {
+            [pscustomobject]@{ 'ScriptDefinition' = 'foo' } | Invoke-Formatter | Should -Be 'foo'
+        }
+        It 'Value from Pipeline by Property Name with all parameters' {
+            [pscustomobject]@{ ScriptDefinition = 'foo'; Settings = @(); Range = 1, 1, 1, 4 } |
+                Invoke-Formatter | Should -Be 'foo'
         }
     }
 

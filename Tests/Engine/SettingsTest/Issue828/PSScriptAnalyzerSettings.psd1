@@ -1,7 +1,7 @@
 @{
     Severity     = @(
-        'Error', 
-        'Warning', 
+        'Error',
+        'Warning',
         'Information'
     )
     ExcludeRules = @(
@@ -14,8 +14,8 @@
             CheckHashtable = $true
         }
         PSAvoidUsingCmdletAliases  = @{
-            # only whitelist verbs from *-Object cmdlets
-            Whitelist = @(
+            # only allowlist verbs from *-Object cmdlets
+            allowlist = @(
                 '%',
                 '?',
                 'compare',

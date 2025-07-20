@@ -1,16 +1,20 @@
-﻿$testRootDirectory = Split-Path -Parent $PSScriptRoot
+﻿# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
-Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+BeforeAll {
+    $testRootDirectory = Split-Path -Parent $PSScriptRoot
+    Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
 
-$ruleConfiguration = @{
-    Enable         = $true
-    CheckHashtable = $true
-}
+    $ruleConfiguration = @{
+        Enable         = $true
+        CheckHashtable = $true
+    }
 
-$settings = @{
-    IncludeRules = @("PSAlignAssignmentStatement")
-    Rules        = @{
-        PSAlignAssignmentStatement = $ruleConfiguration
+    $settings = @{
+        IncludeRules = @("PSAlignAssignmentStatement")
+        Rules        = @{
+            PSAlignAssignmentStatement = $ruleConfiguration
+        }
     }
 }
 
@@ -71,6 +75,33 @@ $x = @{ }
             Invoke-ScriptAnalyzer -ScriptDefinition $def -Settings $settings | Get-Count | Should -Be 0
 
         }
+
+        It "Should ignore if a hashtable has a single key-value pair on a single line" {
+            $def = @'
+$x = @{ 'key'="value" }
+'@
+            Invoke-ScriptAnalyzer -ScriptDefinition $def -Settings $settings | Get-Count | Should -Be 0
+
+        }
+
+        It "Should ignore if a hashtable has a single key-value pair across multiple lines" {
+            $def = @'
+$x = @{ 
+    'key'="value" 
+}
+'@
+            Invoke-ScriptAnalyzer -ScriptDefinition $def -Settings $settings | Get-Count | Should -Be 0
+
+        }
+
+        It "Should ignore if a hashtable has multiple key-value pairs on a single line" {
+            $def = @'
+$x = @{ 'key'="value"; 'key2'="value2"; 'key3WithLongerName'="value3" }
+'@
+            Invoke-ScriptAnalyzer -ScriptDefinition $def -Settings $settings | Get-Count | Should -Be 0
+
+        }
+
     }
 
     Context "When assignment statements are in DSC Configuration" {

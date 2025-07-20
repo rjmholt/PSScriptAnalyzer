@@ -36,7 +36,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
 
             List<String> passwords = new List<String>() {"Password", "Passphrase"};
             List<String> usernames = new List<String>() { "Username", "User"};
-            Type[] typeWhiteList = {typeof(CredentialAttribute),
+            Type[] typeAllowList = {typeof(CredentialAttribute),
                                             typeof(PSCredential),
                                             typeof(System.Security.SecureString),
                                             typeof(SwitchParameter),
@@ -54,7 +54,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 // Iterates all ParamAsts and check if their names are on the list.
                 foreach (ParameterAst paramAst in paramAsts)
                 {
-                    var attributes = typeWhiteList.Select(x => GetAttributeOfType(paramAst.Attributes, x));
+                    var attributes = typeAllowList.Select(x => GetAttributeOfType(paramAst.Attributes, x));
                     String paramName = paramAst.Name.VariablePath.ToString();                    
                     foreach (String password in passwords)
                     {
@@ -86,7 +86,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
                 {
                     yield return new DiagnosticRecord(
                         String.Format(CultureInfo.CurrentCulture, Strings.AvoidUsernameAndPasswordParamsError, funcAst.Name),
-                        GetExtent(usernameAst, passwordAst, ast), GetName(), DiagnosticSeverity.Error, fileName);
+                        GetExtent(usernameAst, passwordAst), GetName(), DiagnosticSeverity.Error, fileName);
                 }
             }
         }
@@ -111,7 +111,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer.BuiltinRules
         /// <param name="usernameAst"></param>
         /// <param name="passwordAst"></param>
         /// <returns>IScriptExtent</returns>
-        private IScriptExtent GetExtent(ParameterAst usernameAst, ParameterAst passwordAst, Ast scriptAst)
+        private IScriptExtent GetExtent(ParameterAst usernameAst, ParameterAst passwordAst)
         {
             var usrExt = usernameAst.Extent;
             var pwdExt = passwordAst.Extent;

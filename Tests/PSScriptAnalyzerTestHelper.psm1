@@ -1,3 +1,5 @@
+$script:SafeShould = (Get-Command -Module Pester -Name Should -ErrorAction Stop)
+
 Function Get-ExtentTextFromContent
 {
 	    Param(
@@ -48,23 +50,9 @@ Function Test-CorrectionExtentFromContent {
 	$corrections = $diagnosticRecord.SuggestedCorrections
 	$corrections.Count | Should -Be $correctionsCount
 	$corrections[0].Text | Should -Be $correctionText
-	Get-ExtentTextFromContent $corrections[0] $rawContent | `
-		       Should -Be $violationText
-}
+	$extent = Get-ExtentTextFromContent $corrections[0] $rawContent
 
-Function Test-PSEditionCoreCLR
-{
-    [bool]$IsCoreCLR
-}
-
-Function Test-PSVersionV3
-{
-	$PSVersionTable.PSVersion.Major -eq 3
-}
-
-Function Test-PSVersionV4
-{
-	$PSVersionTable.PSVersion.Major -eq 4
+	& $script:SafeShould -ActualValue $extent -Be $violationText
 }
 
 Function Get-Count
@@ -77,7 +65,4 @@ Function Get-Count
 Export-ModuleMember -Function Get-ExtentText
 Export-ModuleMember -Function Test-CorrectionExtent
 Export-ModuleMember -Function Test-CorrectionExtentFromContent
-Export-ModuleMember -Function Test-PSEditionCoreCLR
-Export-ModuleMember -Function Test-PSVersionV3
-Export-ModuleMember -Function Test-PSVersionV4
 Export-ModuleMember -Function Get-Count

@@ -22,9 +22,17 @@ using System.Collections.ObjectModel;
 using System.Collections;
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Windows.PowerShell.ScriptAnalyzer.Extensions;
 
 namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
 {
+    internal enum SuppressionPreference
+    {
+        Omit = 0,
+        Include = 1,
+        SuppressedOnly = 2,
+    }
+
     public sealed class ScriptAnalyzer
     {
         #region Private members
@@ -41,7 +49,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
         string[] severity;
         List<Regex> includeRegexList;
         List<Regex> excludeRegexList;
-        bool suppressedOnly;
+        private SuppressionPreference _suppressionPreference;
 #if !PSV3
         ModuleDependencyHandler moduleHandler;
 #endif
@@ -118,7 +126,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             string[] excludeRuleNames = null,
             string[] severity = null,
             bool includeDefaultRules = false,
-            bool suppressedOnly = false)
+            SuppressionPreference suppressionPreference = SuppressionPreference.Omit)
             where TCmdlet : PSCmdlet, IOutputWriter
         {
             if (cmdlet == null)
@@ -135,7 +143,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
                 excludeRuleNames,
                 severity,
                 includeDefaultRules,
-                suppressedOnly);
+                suppressionPreference);
         }
 
         /// <summary>
@@ -150,6 +158,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             string[] severity = null,
             bool includeDefaultRules = false,
             bool suppressedOnly = false,
+            bool includeSuppression = false,
             string profile = null)
         {
             if (runspace == null)
@@ -159,10 +168,14 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
 
             //initialize helper
             Helper.Instance = new Helper(
-                runspace.SessionStateProxy.InvokeCommand,
-                outputWriter);
+                runspace.SessionStateProxy.InvokeCommand);
             Helper.Instance.Initialize();
 
+            SuppressionPreference suppressionPreference = suppressedOnly
+                ? SuppressionPreference.SuppressedOnly
+                : includeSuppression
+                    ? SuppressionPreference.Include
+                    : SuppressionPreference.Omit;
 
             this.Initialize(
                 outputWriter,
@@ -173,7 +186,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
                 excludeRuleNames,
                 severity,
                 includeDefaultRules,
-                suppressedOnly,
+                suppressionPreference,
                 profile);
         }
 
@@ -187,7 +200,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             severity = null;
             includeRegexList = null;
             excludeRegexList = null;
-            suppressedOnly = false;
+            _suppressionPreference = SuppressionPreference.Omit;
         }
 
         /// <summary>
@@ -671,7 +684,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             string[] excludeRuleNames,
             string[] severity,
             bool includeDefaultRules = false,
-            bool suppressedOnly = false,
+            SuppressionPreference suppressionPreference = SuppressionPreference.Omit,
             string profile = null)
         {
             if (outputWriter == null)
@@ -730,7 +743,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
                 }
             }
 
-            this.suppressedOnly = suppressedOnly;
+            _suppressionPreference = suppressionPreference;
             this.includeRegexList = new List<Regex>();
             this.excludeRegexList = new List<Regex>();
 
@@ -809,13 +822,13 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             // Ensure that rules were actually loaded
             if (rules == null || rules.Any() == false)
             {
+                string errorMessage = string.Format(CultureInfo.CurrentCulture, Strings.RulesNotFound);
+
                 this.outputWriter.ThrowTerminatingError(
                     new ErrorRecord(
-                        new Exception(),
-                        string.Format(
-                            CultureInfo.CurrentCulture,
-                            Strings.RulesNotFound),
-                        ErrorCategory.ResourceExists,
+                        new Exception(errorMessage),
+                        errorMessage,
+                        ErrorCategory.ObjectNotFound,
                         this));
             }
 
@@ -1250,13 +1263,6 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
 
                         foreach (var psobject in psobjects)
                         {
-                            DiagnosticSeverity severity;
-                            IScriptExtent extent;
-                            string message = string.Empty;
-                            string ruleName = string.Empty;
-                            string ruleSuppressionID = string.Empty;
-                            IEnumerable<CorrectionExtent> suggestedCorrections;
-
                             if (psobject != null && psobject.ImmediateBaseObject != null)
                             {
                                 // Because error stream is merged to output stream,
@@ -1269,28 +1275,9 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
                                 }
 
                                 // DiagnosticRecord may not be correctly returned from external rule.
-                                try
+                                if (TryConvertPSObjectToDiagnostic(psobject, filePath, out DiagnosticRecord diagnostic))
                                 {
-                                    severity = (DiagnosticSeverity)Enum.Parse(typeof(DiagnosticSeverity), psobject.Properties["Severity"].Value.ToString());
-                                    message = psobject.Properties["Message"].Value.ToString();
-                                    extent = (IScriptExtent)psobject.Properties["Extent"].Value;
-                                    ruleName = psobject.Properties["RuleName"].Value.ToString();
-                                    ruleSuppressionID = psobject.Properties["RuleSuppressionID"].Value?.ToString();
-                                    suggestedCorrections = (IEnumerable<CorrectionExtent>)psobject.Properties["SuggestedCorrections"].Value;
-                                }
-                                catch (Exception ex)
-                                {
-                                    this.outputWriter.WriteError(new ErrorRecord(ex, ex.HResult.ToString("X"), ErrorCategory.NotSpecified, this));
-                                    continue;
-                                }
-
-                                if (!string.IsNullOrEmpty(message))
-                                {
-                                    diagnostics.Add(new DiagnosticRecord(message, extent, ruleName, severity, filePath)
-                                    {
-                                        SuggestedCorrections = suggestedCorrections,
-                                        RuleSuppressionID = ruleSuppressionID,
-                                    });
+                                    diagnostics.Add(diagnostic);
                                 }
                             }
                         }
@@ -1501,7 +1488,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
         /// <param name="scriptTokens">Parsed tokens of <paramref name="scriptDefinition"/.></param>
         /// <param name="skipVariableAnalysis">Whether variable analysis can be skipped (applicable if rules do not use variable analysis APIs).</param>
         /// <returns></returns>
-        public IEnumerable<DiagnosticRecord> AnalyzeScriptDefinition(string scriptDefinition, out ScriptBlockAst scriptAst, out Token[] scriptTokens, bool skipVariableAnalysis = false)
+        public List<DiagnosticRecord> AnalyzeScriptDefinition(string scriptDefinition, out ScriptBlockAst scriptAst, out Token[] scriptTokens, bool skipVariableAnalysis = false)
         {
             scriptAst = null;
             scriptTokens = null;
@@ -1516,7 +1503,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             catch (Exception e)
             {
                 this.outputWriter.WriteWarning(e.ToString());
-                return null;
+                return new();
             }
 
             var relevantParseErrors = RemoveTypeNotFoundParseErrors(errors, out List<DiagnosticRecord> diagnosticRecords);
@@ -1541,7 +1528,8 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             }
 
             // now, analyze the script definition
-            return diagnosticRecords.Concat(this.AnalyzeSyntaxTree(scriptAst, scriptTokens, String.Empty, skipVariableAnalysis));
+            diagnosticRecords.AddRange(this.AnalyzeSyntaxTree(scriptAst, scriptTokens, null, skipVariableAnalysis));
+            return diagnosticRecords;
         }
 
         /// <summary>
@@ -1646,6 +1634,57 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             updatedRange = range;
             return text;
         }
+
+        private bool TryConvertPSObjectToDiagnostic(PSObject psObject, string filePath, out DiagnosticRecord diagnostic)
+        {
+            string message = psObject.Properties["Message"]?.Value?.ToString();
+            object extentValue = psObject.Properties["Extent"]?.Value;
+            string ruleName = psObject.Properties["RuleName"]?.Value?.ToString();
+            string ruleSuppressionID = psObject.Properties["RuleSuppressionID"]?.Value?.ToString();
+            CorrectionExtent[] suggestedCorrections = psObject.TryGetPropertyValue("SuggestedCorrections", out object correctionsValue)
+                ? LanguagePrimitives.ConvertTo<CorrectionExtent[]>(correctionsValue)
+                : null;
+            DiagnosticSeverity severity = psObject.TryGetPropertyValue("Severity", out object severityValue)
+                ? LanguagePrimitives.ConvertTo<DiagnosticSeverity>(severityValue)
+                : DiagnosticSeverity.Warning;
+
+            bool isValid = true;
+            isValid &= CheckHasRequiredProperty("Message", message);
+            isValid &= CheckHasRequiredProperty("RuleName", ruleName);
+
+            if (extentValue is not null && extentValue is not IScriptExtent)
+            {
+                this.outputWriter.WriteError(
+                    new ErrorRecord(
+                        new ArgumentException($"Property 'Extent' is expected to be of type '{typeof(IScriptExtent)}' but was instead of type '{extentValue.GetType()}'"),
+                        "CustomRuleDiagnosticPropertyInvalidType",
+                        ErrorCategory.InvalidArgument,
+                        this));
+                isValid = false;
+            }
+
+            if (!isValid)
+            {
+                diagnostic = null;
+                return false;
+            }
+
+            diagnostic = new DiagnosticRecord(message, (IScriptExtent)extentValue, ruleName, severity, filePath, ruleSuppressionID, suggestedCorrections);
+            return true;
+        }
+
+        private bool CheckHasRequiredProperty(string propertyName, object propertyValue)
+        {
+            if (propertyValue is null)
+            {
+                var exception = new ArgumentNullException(propertyName, $"The '{propertyName}' property is required on custom rule diagnostics");
+                this.outputWriter.WriteError(new ErrorRecord(exception, "CustomRuleDiagnosticPropertyMissing", ErrorCategory.InvalidArgument, this));
+                return false;
+            }
+
+            return true;
+        }
+
 
         private static Encoding GetFileEncoding(string path)
         {
@@ -2324,9 +2363,13 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             // Need to reverse the concurrentbag to ensure that results are sorted in the increasing order of line numbers
             IEnumerable<DiagnosticRecord> diagnosticsList = diagnostics.Reverse();
 
-            return this.suppressedOnly ?
-                suppressed.OfType<DiagnosticRecord>() :
-                diagnosticsList;
+            return _suppressionPreference switch
+            {
+                SuppressionPreference.SuppressedOnly => suppressed.OfType<DiagnosticRecord>(),
+                SuppressionPreference.Omit => diagnosticsList,
+                SuppressionPreference.Include => diagnosticsList.Concat(suppressed.OfType<DiagnosticRecord>()),
+                _ => throw new ArgumentException($"SuppressionPreference has invalid value '{_suppressionPreference}'"),
+            };
         }
     }
 }

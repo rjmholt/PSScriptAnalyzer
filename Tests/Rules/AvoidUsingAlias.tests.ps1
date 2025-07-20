@@ -1,11 +1,15 @@
-﻿$violationMessage = "'cls' is an alias of 'Clear-Host'. Alias can introduce possible problems and make scripts hard to maintain. Please consider changing alias to its full content."
-$violationName = "PSAvoidUsingCmdletAliases"
-$testRootDirectory = Split-Path -Parent $PSScriptRoot
-$violationFilepath = Join-Path $PSScriptRoot 'AvoidUsingAlias.ps1'
-$violations = Invoke-ScriptAnalyzer $violationFilepath | Where-Object {$_.RuleName -eq $violationName}
-$noViolations = Invoke-ScriptAnalyzer $PSScriptRoot\AvoidUsingAliasNoViolations.ps1 | Where-Object {$_.RuleName -eq $violationName}
+﻿# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
-Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+BeforeAll {
+    $violationMessage = "'cls' is an alias of 'Clear-Host'. Alias can introduce possible problems and make scripts hard to maintain. Please consider changing alias to its full content."
+    $violationName = "PSAvoidUsingCmdletAliases"
+    $testRootDirectory = Split-Path -Parent $PSScriptRoot
+    $violationFilepath = Join-Path $PSScriptRoot 'AvoidUsingAlias.ps1'
+    $violations = Invoke-ScriptAnalyzer $violationFilepath | Where-Object {$_.RuleName -eq $violationName}
+    $noViolations = Invoke-ScriptAnalyzer $PSScriptRoot\AvoidUsingAliasNoViolations.ps1 | Where-Object {$_.RuleName -eq $violationName}
+    Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+}
 
 Describe "AvoidUsingAlias" {
     Context "When there are violations" {
@@ -63,38 +67,38 @@ Configuration MyDscConfiguration {
         }
     }
 
-    Context "Settings file provides whitelist" {
+    Context "Settings file provides allowlist" {
         BeforeAll {
-            $whiteListTestScriptDef = 'gci; cd;'
+            $allowListTestScriptDef = 'gci; cd;'
             $settings = @{
                 'Rules' = @{
                     'PSAvoidUsingCmdletAliases' = @{
-                        'Whitelist' = @('cd')
+                        'allowlist' = @('cd')
                     }
                 }
             }
         }
 
-        It "honors the whitelist provided as hashtable" {
+        It "honors the allowlist provided as hashtable" {
             $settings = @{
                 'Rules' = @{
                     'PSAvoidUsingCmdletAliases' = @{
-                        'Whitelist' = @('cd')
+                        'allowlist' = @('cd')
                     }
                 }
             }
-            $violations = Invoke-ScriptAnalyzer -ScriptDefinition $whiteListTestScriptDef -Settings $settings -IncludeRule $violationName
+            $violations = Invoke-ScriptAnalyzer -ScriptDefinition $allowListTestScriptDef -Settings $settings -IncludeRule $violationName
             $violations.Count | Should -Be 1
         }
 
-        It "honors the whitelist provided through settings file" {
+        It "honors the allowlist provided through settings file" {
             # even though join-path returns string, if we do not use tostring, then invoke-scriptanalyzer cannot cast it to string type
             $settingsFilePath = (Join-Path $PSScriptRoot (Join-Path 'TestSettings' 'AvoidAliasSettings.psd1')).ToString()
-            $violations = Invoke-ScriptAnalyzer -ScriptDefinition $whiteListTestScriptDef -Settings $settingsFilePath -IncludeRule $violationName
+            $violations = Invoke-ScriptAnalyzer -ScriptDefinition $allowListTestScriptDef -Settings $settingsFilePath -IncludeRule $violationName
             $violations.Count | Should -Be 1
         }
 
-        It "honors the whitelist in a case-insensitive manner" {
+        It "honors the allowlist in a case-insensitive manner" {
             $violations = Invoke-ScriptAnalyzer -ScriptDefinition "CD" -Settings $settings -IncludeRule $violationName
             $violations.Count | Should -Be 0
         }
@@ -112,6 +116,13 @@ Configuration MyDscConfiguration {
             }
 
             $violations.Count | Should -Be $expectedViolations
+        }
+
+        It 'Warn about incorrect syntax around process block' {
+            $scriptDefinition = { function foo { IShouldNotBeHere; process {} } }
+            $violations = Invoke-ScriptAnalyzer -IncludeRule PSAvoidUsingCmdletAliases -ScriptDefinition "$scriptDefinition"
+            $violations.Count | Should -Be 1
+            $violations.Severity | Should -Be ([Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic.DiagnosticSeverity]::ParseError)
         }
     }
 }

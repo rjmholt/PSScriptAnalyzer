@@ -1,13 +1,17 @@
-﻿$testRootDirectory = Split-Path -Parent $PSScriptRoot
-Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+﻿# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
+BeforeAll {
+    $testRootDirectory = Split-Path -Parent $PSScriptRoot
+    Import-Module (Join-Path $testRootDirectory "PSScriptAnalyzerTestHelper.psm1")
+}
 
 Describe "UseConsistentIndentation" {
     BeforeAll {
         function Invoke-FormatterAssertion {
             param(
                 [string] $ScriptDefinition,
-                [string] $ExcpectedScriptDefinition,
+                [string] $ExpectedScriptDefinition,
                 [int] $NumberOfExpectedWarnings,
                 [hashtable] $Settings
             )
@@ -15,9 +19,9 @@ Describe "UseConsistentIndentation" {
             # Unit test just using this rule only
             $violations = Invoke-ScriptAnalyzer -ScriptDefinition $scriptDefinition -Settings $settings
             $violations.Count | Should -Be $NumberOfExpectedWarnings -Because $ScriptDefinition
-            Invoke-Formatter -ScriptDefinition $scriptDefinition -Settings $settings | Should -Be $expected -Because $ScriptDefinition
+            Invoke-Formatter -ScriptDefinition $scriptDefinition -Settings $settings | Should -Be $ExpectedScriptDefinition -Because $ScriptDefinition
             # Integration test with all default formatting rules
-            Invoke-Formatter -ScriptDefinition $scriptDefinition | Should -Be $expected -Because $ScriptDefinition
+            Invoke-Formatter -ScriptDefinition $scriptDefinition | Should -Be $ExpectedScriptDefinition -Because $ScriptDefinition
         }
     }
     BeforeEach {
@@ -108,6 +112,84 @@ $param3
             $violations.Count | Should -Be 4
         }
     }
+
+    Context 'LParen indentation' {
+        It 'Should preserve script when line starts with LParen' {
+            $IdempotentScriptDefinition = @'
+function test {
+    (foo | bar {
+        baz
+    })
+    Do-Something
+}
+'@
+            Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition | Should -Be $idempotentScriptDefinition
+        }
+
+            It 'Should preserve script when line starts and ends with LParen' {
+                $IdempotentScriptDefinition = @'
+function test {
+    (
+        foo | bar {
+            baz
+        }
+    )
+    Do-Something
+}
+'@
+                Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition | Should -Be $idempotentScriptDefinition
+            }
+
+            It 'Should preserve script when line starts and ends with LParen but trailing comment' {
+                $IdempotentScriptDefinition = @'
+function test {
+    ( # comment
+        foo | bar {
+            baz
+        }
+    )
+    Do-Something
+}
+'@
+                Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition | Should -Be $idempotentScriptDefinition
+            }
+
+        It 'Should preserve script when there is Newline after LParen' {
+            $IdempotentScriptDefinition = @'
+function test {
+    $result = (
+        Get-Something
+    ).Property
+    Do-Something
+}
+'@
+            Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition | Should -Be $idempotentScriptDefinition
+        }
+
+    It 'Should preserve script when there is a comment and Newline after LParen' {
+        $IdempotentScriptDefinition = @'
+function test {
+    $result = ( # comment
+        Get-Something
+    ).Property
+    Do-Something
+}
+'@
+        Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition | Should -Be $idempotentScriptDefinition
+    }
+
+    It 'Should find violation in script when LParen is first token on a line and is not followed by Newline' {
+        $ScriptDefinition = @'
+     (foo)
+     (bar)
+'@
+        $ExpectedScriptDefinition = @'
+(foo)
+(bar)
+'@
+    Invoke-FormatterAssertion $ScriptDefinition $ExpectedScriptDefinition 2 $settings
+    }
+}
 
     Context "When a sub-expression is provided" {
         It "Should not find a violations" {
@@ -235,6 +317,40 @@ baz
             Test-CorrectionExtentFromContent @params
         }
 
+        It "Should indent hashtable correctly using <PipelineIndentation> option" -TestCases @(
+            @{
+                PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+            },
+            @{
+                PipelineIndentation = 'IncreaseIndentationAfterEveryPipeline'
+            },
+            @{
+                PipelineIndentation = 'NoIndentation'
+            }
+            @{
+                PipelineIndentation = 'None'
+            }
+        ) {
+            Param([string] $PipelineIndentation)
+            $scriptDefinition = @'
+@{
+        foo = "value1"
+    bar = "value2"
+}
+'@
+            $settings = @{
+                IncludeRules = @('PSUseConsistentIndentation')
+                Rules = @{ PSUseConsistentIndentation = @{ Enable = $true; PipelineIndentation = $PipelineIndentation } }
+            }
+            Invoke-Formatter -Settings $settings -ScriptDefinition $scriptDefinition | Should -Be @'
+@{
+    foo = "value1"
+    bar = "value2"
+}
+'@
+
+        }
+
         It "Should indent pipelines correctly using <PipelineIndentation> option" -TestCases @(
             @{
                 PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
@@ -287,6 +403,18 @@ bar
 foo |
     bar
 '@
+            },
+            @{ IdempotentScriptDefinition = @'
+foo |
+    bar -Parameter1
+'@
+            },
+            @{ IdempotentScriptDefinition = @'
+Get-TransportRule |
+Where-Object @{ $_.name -match "a"} |
+Select-Object @{ E = $SenderDomainIs | Sort-Object }
+Foreach-Object { $_.FullName }
+'@
             }
             ) {
         param ($IdempotentScriptDefinition)
@@ -294,6 +422,20 @@ foo |
         $settings.Rules.PSUseConsistentIndentation.PipelineIndentation = 'None'
         Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition -Settings $settings | Should -Be $idempotentScriptDefinition
     }
+
+        It 'Should preserve script when using PipelineIndentation IncreaseIndentationAfterEveryPipeline' -TestCases @(
+            @{ PipelineIndentation = 'IncreaseIndentationForFirstPipeline' }
+            @{ PipelineIndentation = 'IncreaseIndentationAfterEveryPipeline' }
+            ) {
+        param ($PipelineIndentation)
+            $IdempotentScriptDefinition = @'
+Get-TransportRule |
+    Select-Object @{ Key = $SenderDomainIs | Sort-Object }
+baz
+'@
+            $settings.Rules.PSUseConsistentIndentation.PipelineIndentation = $PipelineIndentation
+            Invoke-Formatter -ScriptDefinition $IdempotentScriptDefinition -Settings $settings | Should -Be $idempotentScriptDefinition
+        }
 
         It "Should preserve script when using PipelineIndentation <PipelineIndentation>" -TestCases @(
                 @{ PipelineIndentation = 'IncreaseIndentationForFirstPipeline' }
@@ -387,7 +529,6 @@ foo |
             }
             Test-CorrectionExtentFromContent @params
         }
-
 
         It "Should indent properly after line continuation (backtick) character with pipeline" {
             $def = @'

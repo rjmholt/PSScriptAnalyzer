@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 Describe "ReviewUnusedParameter" {
     BeforeAll {
         $RuleName = 'PSReviewUnusedParameter'
@@ -17,6 +20,30 @@ Describe "ReviewUnusedParameter" {
             $Violations.Count | Should -Be 2
         }
 
+        It "has 1 violation - function with 1 parameter with ValueFromPipeline set to false and `$_ usage inside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline = $false)] $Param1) process {$_}}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 1
+        }
+
+        It "has 1 violation - function with 1 parameter with ValueFromPipeline set to false and `$PSItem usage inside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline = $false)] $Param1) process {$PSItem}}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 1
+        }
+
+        It "has 1 violation - function with 1 parameter with ValueFromPipeline set to true and `$_ usage outside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline = $true)] $Param1) $_}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 1
+        }
+
+        It "has 1 violation - function with 1 parameter with ValueFromPipeline set to true and `$PSItem usage outside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline = $true)] $Param1) $PSItem}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 1
+        }
+
         It "has 1 violation - scriptblock with 1 unused parameter" {
             $ScriptDefinition = '{ param ($Param1) }'
             $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
@@ -25,6 +52,12 @@ Describe "ReviewUnusedParameter" {
 
         It "doesn't traverse scriptblock scope" {
             $ScriptDefinition = '{ param ($Param1) }; { $Param1 }'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 1
+        }
+
+		It "doesn't traverse scriptblock scope for a random command" {
+            $ScriptDefinition = '{ param ($Param1) 1..3 | Invoke-Parallel { $Param1 }}'
             $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
             $Violations.Count | Should -Be 1
         }
@@ -50,8 +83,44 @@ Describe "ReviewUnusedParameter" {
             $Violations.Count | Should -Be 0
         }
 
+        It "has no violation - function with 1 parameter with ValueFromPipeline explictly set to true and `$_ usage inside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline = $true)] $Param1) process {$_}}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+        It "has no violation - function with 1 parameter with ValueFromPipeline explictly set to true and `$PSItem usage inside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline = $true)] $Param1) process {$PSItem}}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+        It "has no violation - function with 1 parameter with ValueFromPipeline implicitly set to true and `$_ usage inside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline)] $Param1) process{$_}}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+        It "has no violation - function with 1 parameter with ValueFromPipeline implicitly set to true and `$PSItem usage inside process block" {
+            $ScriptDefinition = 'function BadFunc1 { param ([Parameter(ValueFromPipeline)] $Param1) process{$PSItem}}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
         It "has no violations when using PSBoundParameters" {
             $ScriptDefinition = 'function Bound { param ($Param1) Get-Foo @PSBoundParameters }'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+        It "has no violations when using MyInvocation.BoundParameters" {
+            $ScriptDefinition = 'function Bound { param ($Param1) $splat = $MyInvocation.BoundParameters; Get-Foo @splat }'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+        It "has no violations when using PSCmdlet.MyInvocation.BoundParameters" {
+            $ScriptDefinition = 'function Bound { param ($Param1) $splat = $PSCmdlet.MyInvocation.BoundParameters; Get-Foo @splat }'
             $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
             $Violations.Count | Should -Be 0
         }
@@ -65,6 +134,24 @@ Describe "ReviewUnusedParameter" {
         It "has no violations when case of parameter and variable usage do not match" -skip {
             $ScriptDefinition = 'function foo { param ($Param1, $param2) $param1; $Param2}'
             $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+		It "does traverse scriptblock scope for Foreach-Object" {
+            $ScriptDefinition = '{ param ($Param1) 1..3 | ForEach-Object { $Param1 }}'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName
+            $Violations.Count | Should -Be 0
+        }
+
+		It "does traverse scriptblock scope for commands added to the traversal list" {
+            $ScriptDefinition = '{ param ($Param1) Invoke-PSFProtectedCommand { $Param1 } }'
+            $Violations = Invoke-ScriptAnalyzer -ScriptDefinition $ScriptDefinition -IncludeRule $RuleName -Settings @{
+				Rules = @{
+					PSReviewUnusedParameter = @{
+						CommandsToTraverse = @('Invoke-PSFProtectedCommand')
+					}
+				}
+			}
             $Violations.Count | Should -Be 0
         }
     }
